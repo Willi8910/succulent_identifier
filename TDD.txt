@@ -1,0 +1,282 @@
+TECHNICAL DESIGN DOCUMENT (TDD)
+===============================
+
+Product:
+Succulent Identifier (Web)
+
+Document Version:
+v1.0
+
+Related Document:
+PRD v1.0
+
+Last Updated:
+2026-02-02
+
+Author:
+William
+
+--------------------------------------------------
+1. SYSTEM OVERVIEW
+--------------------------------------------------
+
+The system identifies succulent plants from user-uploaded images and
+returns genus-level and species-level predictions along with care
+instructions. The system is designed as a three-layer architecture:
+
+- Frontend (React JS)
+- Backend API (Golang)
+- ML Service (Python + PyTorch)
+
+The system is designed for local-first deployment and future iteration.
+
+--------------------------------------------------
+2. HIGH-LEVEL ARCHITECTURE
+--------------------------------------------------
+
+[ React JS ]
+    |
+    | HTTP (multipart image upload)
+    v
+[ Golang API ]
+    |
+    | HTTP (JSON request)
+    v
+[ Python ML Service ]
+    |
+    | JSON response
+    v
+[ Golang API ]
+    |
+    | JSON response
+    v
+[ React JS ]
+
+--------------------------------------------------
+3. FRONTEND DESIGN (REACT JS)
+--------------------------------------------------
+
+Responsibilities:
+- Image upload UI
+- Display identification result
+- Display care instructions
+- Handle error and retry states
+
+Key Notes:
+- No authentication in V1
+- Single image per request
+- Confidence must always be visible
+- Species shown only if confidence >= threshold
+
+Frontend does NOT:
+- Perform image preprocessing
+- Perform ML inference
+
+--------------------------------------------------
+4. BACKEND DESIGN (GOLANG API)
+--------------------------------------------------
+
+4.1 Responsibilities
+
+- Receive image uploads
+- Validate file type and size
+- Persist uploaded image locally
+- Call ML inference service
+- Interpret ML predictions
+- Map prediction to care data
+- Return unified response to frontend
+
+4.2 File Handling Strategy
+
+- Images stored temporarily in a local directory (e.g., /uploads)
+- Images may be deleted after inference (configurable)
+- Filenames are generated UUIDs
+
+--------------------------------------------------
+5. ML SERVICE DESIGN (PYTHON)
+--------------------------------------------------
+
+5.1 Responsibilities
+
+- Load trained ML model into memory
+- Perform image preprocessing
+- Run inference
+- Return Top-K predictions with confidence scores
+
+5.2 Model Loading Strategy
+
+- Model loaded once on service startup
+- Labels loaded from a JSON file
+- CPU inference only (V1)
+
+--------------------------------------------------
+6. DATA DESIGN
+--------------------------------------------------
+
+6.1 Label Design
+
+Species-level labels only.
+
+Format:
+<genus>_<species_name>
+
+Examples:
+- echeveria_perle_von_nurnberg
+- haworthia_zebrina
+
+Derived Fields:
+- Genus extracted from label prefix
+- Species name formatted for display
+
+--------------------------------------------------
+6.2 Care Data Design
+
+Stored as JSON.
+
+Key hierarchy:
+- Species-level key (highest priority)
+- Genus-level key (fallback)
+
+Example:
+{
+  "echeveria": { ... },
+  "echeveria_perle_von_nurnberg": { ... }
+}
+
+--------------------------------------------------
+7. API DESIGN
+--------------------------------------------------
+
+7.1 Backend API
+
+Endpoint:
+POST /identify
+
+Request:
+- multipart/form-data
+- field: image
+
+Response:
+{
+  "plant": {
+    "genus": "Echeveria",
+    "species": "Perle von Nürnberg",
+    "confidence": 0.52
+  },
+  "care": {
+    "sunlight": "Bright indirect light",
+    "watering": "Every 7–10 days",
+    "soil": "Well-draining cactus mix",
+    "notes": "Optional"
+  }
+}
+
+--------------------------------------------------
+7.2 ML Inference API
+
+Endpoint:
+POST /infer
+
+Request:
+{
+  "image_path": "/uploads/uuid.jpg"
+}
+
+Response:
+{
+  "predictions": [
+    {
+      "label": "echeveria_perle_von_nurnberg",
+      "confidence": 0.52
+    },
+    {
+      "label": "echeveria_elegans",
+      "confidence": 0.21
+    }
+  ]
+}
+
+--------------------------------------------------
+8. CONFIDENCE & FALLBACK LOGIC
+--------------------------------------------------
+
+- Top prediction is selected
+- If confidence >= SPECIES_THRESHOLD (default: 0.4):
+    - Display genus + species
+    - Use species care if available
+- If confidence < SPECIES_THRESHOLD:
+    - Display genus only
+    - Use genus-level care
+    - Species marked as "uncertain"
+
+--------------------------------------------------
+9. BACKEND DECISION FLOW (PSEUDOCODE)
+--------------------------------------------------
+
+function identifyPlant(image):
+    path = saveImage(image)
+    predictions = callMLService(path)
+
+    top = predictions[0]
+    genus = extractGenus(top.label)
+
+    if top.confidence >= SPECIES_THRESHOLD:
+        species = formatSpecies(top.label)
+        care = getCare(species) or getCare(genus)
+    else:
+        species = null
+        care = getCare(genus)
+
+    return response(genus, species, top.confidence, care)
+
+--------------------------------------------------
+10. ML INFERENCE FLOW (PSEUDOCODE)
+--------------------------------------------------
+
+onServiceStart:
+    model = loadModel("models/succulent_v1.pt")
+    labels = loadLabels("labels.json")
+
+onInferRequest(image_path):
+    image = loadImage(image_path)
+    tensor = preprocess(image)
+    outputs = model(tensor)
+    predictions = softmax(outputs)
+    return topK(predictions)
+
+--------------------------------------------------
+11. NON-FUNCTIONAL CONSIDERATIONS
+--------------------------------------------------
+
+Performance:
+- Single-image inference
+- No concurrency optimization in V1
+
+Reliability:
+- ML service failure must return friendly error
+- Backend must not crash on ML errors
+
+Maintainability:
+- Clear separation of concerns
+- Versioned models
+
+--------------------------------------------------
+12. ASSUMPTIONS & RISKS
+--------------------------------------------------
+
+Assumptions:
+- Images are clear and focused on plant
+- Dataset labels are mostly accurate
+
+Risks:
+- Species visual similarity reduces accuracy
+- Dataset bias affects prediction quality
+
+Mitigations:
+- Show confidence scores
+- Provide genus fallback
+- Allow future retraining
+
+--------------------------------------------------
+END OF DOCUMENT
+--------------------------------------------------

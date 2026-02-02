@@ -1,0 +1,230 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+==================================
+
+Product Name:
+Succulent Identifier (Working Title)
+
+Document Version:
+v1.0
+
+Last Updated:
+2026-02-02
+
+Author:
+William
+
+--------------------------------------------------
+1. PRODUCT OVERVIEW
+--------------------------------------------------
+
+Succulent Identifier is a web-based application that allows users to upload a photo
+of a succulent plant and receive:
+
+- The most likely plant genus
+- The most likely plant species (if confidence is sufficient)
+- A confidence score
+- Basic care instructions for the identified plant
+
+The product is designed for hobbyist-level accuracy, not professional botanical use.
+The system prioritizes transparency and trust over absolute certainty.
+
+--------------------------------------------------
+2. GOALS & NON-GOALS
+--------------------------------------------------
+
+Goals:
+- Identify succulent plants from a single uploaded image
+- Provide genus + species-level identification where possible
+- Show plant care instructions immediately after identification
+- Run fully local-first (no external ML APIs)
+- Allow future dataset and model iteration
+
+Non-Goals (V1):
+- Native mobile apps
+- User accounts or authentication
+- Community features (comments, sharing, etc.)
+- Guaranteed species-level accuracy
+- Offline browser usage
+
+--------------------------------------------------
+3. TARGET USERS
+--------------------------------------------------
+
+Primary Users:
+- Succulent hobbyists
+- Beginner to intermediate plant owners
+- Users who want quick care guidance
+
+User Expectations:
+- “Good enough” identification
+- Honest confidence scores
+- Simple and fast interaction
+- No expert-level terminology required
+
+--------------------------------------------------
+4. USER EXPERIENCE FLOW
+--------------------------------------------------
+
+1. User opens web app
+2. User uploads a photo of a succulent
+3. System processes image
+4. User sees:
+   - Predicted genus
+   - Predicted species (if confident)
+   - Confidence score
+   - Care instructions
+5. User can retry with another photo
+
+If confidence is low:
+- App clearly states species is uncertain
+- Genus-level care is shown instead
+
+--------------------------------------------------
+5. FUNCTIONAL REQUIREMENTS
+--------------------------------------------------
+
+5.1 Image Upload
+- Accept JPG / PNG
+- Max size configurable (e.g., 5MB)
+- Single image per request
+
+5.2 Plant Identification
+- Use custom-trained ML model
+- Output Top-K predictions
+- Extract genus from species label
+
+5.3 Confidence Handling
+- Always display confidence score
+- Species shown only if confidence >= threshold (e.g., 0.4)
+
+5.4 Care Instructions
+- Species-specific care if available
+- Fallback to genus-level care
+- Data stored as JSON initially
+
+5.5 Error Handling
+- Invalid image → user-friendly message
+- ML service unavailable → graceful failure
+- Low confidence → explain uncertainty
+
+--------------------------------------------------
+6. TECHNICAL ARCHITECTURE
+--------------------------------------------------
+
+Frontend:
+- React JS
+- Web-only
+
+Backend:
+- Golang REST API
+- Handles uploads, ML calls, and response shaping
+
+ML Service:
+- Python
+- PyTorch for training and inference
+- FastAPI for inference endpoint
+
+Hosting:
+- Local-first
+- Docker-compatible setup
+
+--------------------------------------------------
+7. ML MODEL REQUIREMENTS
+--------------------------------------------------
+
+Model Type:
+- Image classification
+- Transfer learning (EfficientNet-B0 or similar)
+
+Labels:
+- Species-level labels
+  Example:
+    echeveria_perle_von_nurnberg
+    haworthia_zebrina
+
+Derived Fields:
+- Genus extracted from label prefix
+
+Dataset:
+- Succulents only
+- ~10–20 species in V1.5
+- ~30–60 images per species
+
+Model Output:
+- Top-K predictions with confidence scores
+
+--------------------------------------------------
+8. API REQUIREMENTS
+--------------------------------------------------
+
+Backend API:
+POST /identify
+- Accepts image upload
+- Returns plant identification + care info
+
+ML Inference API:
+POST /infer
+- Accepts image path
+- Returns Top-K predictions
+
+Responses must be JSON.
+
+--------------------------------------------------
+9. CARE DATA REQUIREMENTS
+--------------------------------------------------
+
+Data Format:
+- JSON file
+- Keyed by species and genus
+
+Fallback Logic:
+- Species care → if exists
+- Else → genus care
+
+Care Fields (minimum):
+- Sunlight
+- Watering
+- Soil
+- Notes (optional)
+
+--------------------------------------------------
+10. NON-FUNCTIONAL REQUIREMENTS
+--------------------------------------------------
+
+Performance:
+- Inference under a few seconds locally
+- No strict real-time requirement
+
+Scalability:
+- Designed for single-user / small usage initially
+
+Maintainability:
+- Clear separation between FE, BE, and ML
+- Versioned models
+
+Security:
+- No authentication required (V1)
+- Basic file upload validation
+
+--------------------------------------------------
+11. SUCCESS METRICS
+--------------------------------------------------
+
+- Identification works reliably for known species
+- Clear confidence communication
+- Users can care for their plant based on output
+- Model can be retrained with new data easily
+
+--------------------------------------------------
+12. FUTURE CONSIDERATIONS (POST-V1)
+--------------------------------------------------
+
+- User correction feedback loop
+- Multi-image uploads
+- Genus → species two-step model
+- General plant identification
+- Mobile-friendly PWA
+
+--------------------------------------------------
+END OF DOCUMENT
+--------------------------------------------------
