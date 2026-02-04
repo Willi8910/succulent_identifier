@@ -6,6 +6,7 @@ import os
 import json
 import torch
 import torch.nn as nn
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -89,7 +90,7 @@ def build_model(num_classes: int) -> nn.Module:
     Returns:
         Model instance
     """
-    model = models.efficientnet_b0(pretrained=False)
+    model = models.efficientnet_b0(weights=None)
 
     # Replace classifier to match training configuration
     num_features = model.classifier[1].in_features
@@ -187,28 +188,12 @@ def predict(image_path: str, top_k: int = 3) -> List[Dict[str, float]]:
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
 
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="Succulent Identifier ML Service",
-    description="Image classification service for succulent plant identification",
-    version="1.0.0"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Load model and labels on service startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown"""
     global model, labels_map, preprocessor
 
+    # Startup
     logger.info("Starting ML inference service...")
     logger.info(f"Using device: {Config.DEVICE}")
 
@@ -228,6 +213,29 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize service: {e}")
         raise
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down ML inference service...")
+
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Succulent Identifier ML Service",
+    description="Image classification service for succulent plant identification",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")

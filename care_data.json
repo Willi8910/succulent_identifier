@@ -1,0 +1,38 @@
+{
+  "cryptanthus": {
+    "sunlight": "Bright indirect light to partial shade. Avoid direct sunlight which can scorch leaves.",
+    "watering": "Water when top inch of soil is dry, typically every 5-7 days. Keep soil slightly moist but not waterlogged. Reduce watering in winter.",
+    "soil": "Well-draining potting mix with peat moss and perlite. Prefers slightly acidic soil (pH 5.5-6.5).",
+    "notes": "Earth Star bromeliads prefer higher humidity (50-60%). Mist occasionally or use a humidity tray. Tolerates temperatures between 60-80°F (15-27°C)."
+  },
+  "cryptanthus_bivittatus": {
+    "sunlight": "Bright indirect light. The pink and green striped leaves maintain better color with consistent light levels.",
+    "watering": "Water when top inch of soil feels dry, about every 5-7 days. Allow slight drying between waterings but don't let it completely dry out.",
+    "soil": "Light, well-draining mix with peat moss, perlite, and orchid bark. Ensure good aeration around roots.",
+    "notes": "Also known as Pink Earth Star. Appreciates 50-70% humidity. Feed monthly during growing season with diluted bromeliad or orchid fertilizer. Leaves may lose color if light is insufficient."
+  },
+  "haworthia": {
+    "sunlight": "Bright indirect light to partial sun. Can tolerate some direct morning sun but protect from intense afternoon rays.",
+    "watering": "Water deeply but infrequently, every 10-14 days during growing season. Allow soil to dry completely between waterings. Water less in winter (every 3-4 weeks).",
+    "soil": "Well-draining succulent or cactus mix. Add extra perlite or pumice for improved drainage (50/50 mix recommended).",
+    "notes": "Very tolerant and low-maintenance. Prefers temperatures 65-80°F (18-27°C). Can survive light frost. Prone to root rot if overwatered."
+  },
+  "haworthia_zebrina": {
+    "sunlight": "Bright indirect light. The distinctive white horizontal stripes show best with adequate light. Avoid harsh direct sun.",
+    "watering": "Water thoroughly when soil is completely dry, approximately every 10-14 days in summer, less in winter. Use the soak-and-dry method.",
+    "soil": "Very well-draining cactus mix with at least 50% inorganic material (perlite, pumice, or coarse sand).",
+    "notes": "Also called Zebra Plant or Zebra Haworthia. One of the easiest succulents for beginners. Grows slowly and stays compact. Can propagate from offsets. Prefers to be slightly pot-bound."
+  },
+  "opuntia": {
+    "sunlight": "Full sun, 6-8 hours daily. Very sun-tolerant and prefers intense light.",
+    "watering": "Water sparingly, every 14-21 days during growing season only when soil is completely dry. Minimal to no water in winter dormancy.",
+    "soil": "Fast-draining cactus mix with sand, perlite, or pumice. Prefers slightly alkaline soil (pH 6.0-7.5).",
+    "notes": "Prickly pear cactus. Extremely drought-tolerant. Handle with thick gloves due to spines and glochids (tiny barbed bristles). Hardy to light frost. Produces edible fruits and pads in mature plants."
+  },
+  "opuntia_microdasys": {
+    "sunlight": "Full sun to partial sun, at least 6 hours of direct light daily. Tolerates intense heat.",
+    "watering": "Water deeply every 2-3 weeks when soil is bone dry during spring and summer. Stop watering almost entirely in winter (once a month at most).",
+    "soil": "Very well-draining cactus mix with high sand or perlite content. Ensure excellent drainage to prevent root rot.",
+    "notes": "Also known as Bunny Ears Cactus or Polka-Dot Cactus. Has small white or golden glochids (hairlike spines) that detach easily and can irritate skin - handle with care and use tweezers if needed. Popular ornamental with paddle-shaped pads. Can grow 2-3 feet tall. Native to Mexico."
+  }
+}

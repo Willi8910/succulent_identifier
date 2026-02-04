@@ -94,7 +94,7 @@ def prepare_data(train_transforms, val_transforms):
 def build_model(num_classes):
     """Build EfficientNet-B0 model with transfer learning"""
     # Load pretrained EfficientNet-B0
-    model = models.efficientnet_b0(pretrained=True)
+    model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
 
     # Freeze early layers
     for param in model.parameters():
@@ -257,7 +257,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.classifier.parameters(), lr=Config.LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=3, factor=0.5, verbose=True
+        optimizer, mode='min', patience=3, factor=0.5
     )
 
     # Training loop
