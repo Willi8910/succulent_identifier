@@ -62,10 +62,16 @@ func (fu *FileUploader) SaveFile(file multipart.File, fileHeader *multipart.File
 	// Generate unique filename
 	ext := filepath.Ext(fileHeader.Filename)
 	filename := uuid.New().String() + ext
-	filepath := filepath.Join(fu.uploadDir, filename)
+	filePath := filepath.Join(fu.uploadDir, filename)
+
+	// Get absolute path
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
 
 	// Create destination file
-	dst, err := os.Create(filepath)
+	dst, err := os.Create(absPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to create destination file: %w", err)
 	}
@@ -73,11 +79,11 @@ func (fu *FileUploader) SaveFile(file multipart.File, fileHeader *multipart.File
 
 	// Copy uploaded file to destination
 	if _, err := io.Copy(dst, file); err != nil {
-		os.Remove(filepath) // Clean up on error
+		os.Remove(absPath) // Clean up on error
 		return "", fmt.Errorf("failed to save file: %w", err)
 	}
 
-	return filepath, nil
+	return absPath, nil
 }
 
 // DeleteFile deletes a file from the upload directory
