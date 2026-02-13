@@ -1,0 +1,57 @@
+.loading-container {
+  text-align: center;
+  padding: 60px 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.spinner {
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #48bb78;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 24px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 8px 0;
+}
+
+.loading-subtext {
+  font-size: 16px;
+  color: #718096;
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .loading-container {
+    padding: 40px 15px;
+  }
+
+  .spinner {
+    width: 48px;
+    height: 48px;
+  }
+
+  .loading-text {
+    font-size: 18px;
+  }
+
+  .loading-subtext {
+    font-size: 14px;
+  }
+}

@@ -1,0 +1,98 @@
+.image-upload-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.upload-area {
+  border: 3px dashed #cbd5e0;
+  border-radius: 12px;
+  padding: 60px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #f7fafc;
+}
+
+.upload-area:hover {
+  border-color: #48bb78;
+  background-color: #f0fff4;
+}
+
+.upload-area.drag-active {
+  border-color: #48bb78;
+  background-color: #f0fff4;
+  transform: scale(1.02);
+}
+
+.upload-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.upload-text {
+  color: #4a5568;
+}
+
+.upload-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.upload-subtitle {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #718096;
+}
+
+.upload-hint {
+  font-size: 14px;
+  color: #a0aec0;
+}
+
+.preview-container {
+  text-align: center;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.reset-button {
+  background-color: #4299e1;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.reset-button:hover {
+  background-color: #3182ce;
+}
+
+@media (max-width: 600px) {
+  .upload-area {
+    padding: 40px 15px;
+  }
+
+  .upload-icon {
+    font-size: 48px;
+  }
+
+  .upload-title {
+    font-size: 16px;
+  }
+
+  .preview-image {
+    max-height: 300px;
+  }
+}

@@ -1,0 +1,118 @@
+.results-container {
+  background-color: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin: 20px auto;
+  max-width: 500px;
+}
+
+.results-header {
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.results-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+}
+
+.plant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.plant-name {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.value.genus {
+  color: #48bb78;
+}
+
+.value.species {
+  color: #4299e1;
+  font-style: italic;
+}
+
+.low-confidence-message {
+  background-color: #fefcbf;
+  border-left: 4px solid #ecc94b;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.low-confidence-message p {
+  margin: 0;
+  color: #744210;
+  font-size: 14px;
+}
+
+.confidence-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confidence-bar-container {
+  width: 100%;
+  height: 20px;
+  background-color: #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.confidence-bar {
+  height: 100%;
+  transition: width 0.5s ease;
+}
+
+.confidence-bar.high {
+  background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+}
+
+.confidence-bar.low {
+  background: linear-gradient(90deg, #ecc94b 0%, #d69e2e 100%);
+}
+
+.confidence-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .results-container {
+    padding: 16px;
+    margin: 15px;
+  }
+
+  .results-title {
+    font-size: 20px;
+  }
+
+  .value {
+    font-size: 18px;
+  }
+}
