@@ -67,10 +67,10 @@ This document tracks the progress of building the Succulent Identifier applicati
   - HTTP client to call POST /infer endpoint
   - Error handling for ML service failures
   - Health check endpoint
-- [x] Implemented care data loader (services/care_data.go)
-  - Load from JSON file
-  - Species-level priority
-  - Genus-level fallback
+- [x] Implemented LLM-generated care instructions (services/chat_service.go)
+  - GPT-4o-mini generates care data dynamically
+  - Species-level caching in database
+  - Includes sunlight, watering, soil, notes, and trivia
 - [x] Implemented confidence threshold logic (handlers/identify.go)
   - SPECIES_THRESHOLD = 0.4
   - Show species if confidence >= threshold
@@ -107,6 +107,7 @@ This document tracks the progress of building the Succulent Identifier applicati
 - [x] **PostgreSQL Database Integration**
   - Identification history table with JSONB care_guide
   - Chat messages table with foreign keys
+  - Care instructions cache table for LLM-generated data
   - Soft delete support (deleted_at timestamp)
   - Auto-migration on startup
   - Repository pattern for data access
@@ -491,7 +492,6 @@ succulent_identifier/
 │   ├── package.json        ✅ Dependencies
 │   └── README.md           ✅ Documentation
 │
-├── care_data.json          ✅ Complete
 ├── PRD.txt                 ✅ Requirements
 ├── TDD.txt                 ✅ Tech design
 ├── README.md               ✅ Main project README

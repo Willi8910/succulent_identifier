@@ -24,7 +24,8 @@ Succulent Identifier is a machine learning-powered application designed to help 
 - **Identify Succulent Species**: Upload a photo to get instant identification
 - **Confidence Scoring**: Visual confidence bar showing prediction certainty
 - **Smart Fallback**: Shows genus-level information when species confidence is low
-- **Care Instructions**: Get detailed care guidance including:
+- **Care Instructions**: Get LLM-generated care guidance including:
+  - Interesting trivia and facts
   - Sunlight requirements
   - Watering schedule
   - Soil recommendations
@@ -54,7 +55,7 @@ The model is currently trained on 3 succulent species:
 The architecture supports easy expansion to additional species by:
 1. Scraping more images with the included scraper tool
 2. Retraining the model
-3. Adding care data to the database
+3. Care instructions are automatically generated via LLM and cached
 
 ## 🛠 Tech Stack
 
@@ -106,7 +107,7 @@ graph TB
     subgraph "Backend API Layer"
         API[Go REST API<br/>Port 8080]
         FileHandler[File Upload Handler]
-        CareService[Care Data Service]
+        CareService[LLM Care Generation Service]
         ChatService[OpenAI Chat Service]
         HistoryHandler[History Handler]
     end
@@ -124,7 +125,6 @@ graph TB
     subgraph "Data Layer"
         DB[(PostgreSQL Database)]
         Images[(Uploaded Images)]
-        CareData[(care_data.json)]
         ModelFile[(trained_model.pth)]
     end
 
@@ -136,8 +136,9 @@ graph TB
 
     API -->|Save image| FileHandler
     FileHandler -->|Store| Images
-    API -->|Get care instructions| CareService
-    CareService -->|Read| CareData
+    API -->|Generate care instructions| CareService
+    CareService -->|Call GPT-4o-mini| OpenAI
+    CareService -->|Cache| DB
     API -->|POST /infer| ML
     API -->|Save identification| DB
     API -->|Save chat messages| DB
@@ -413,7 +414,6 @@ succulent_identifier/
 ├── PRD.txt                      # Product Requirements Document
 ├── TDD.txt                      # Technical Design Document
 ├── TODO.md                      # Project progress tracker
-├── care_data.json              # Plant care instructions database
 │
 ├── ml_service/                 # ML Service (Python + PyTorch + FastAPI)
 │   ├── data/
@@ -451,11 +451,9 @@ succulent_identifier/
 │   ├── models/                # Data structures
 │   │   └── types.go
 │   ├── services/              # Business logic
-│   │   ├── care_data.go
-│   │   ├── care_data_test.go
+│   │   ├── chat_service.go    # OpenAI integration for chat & care generation
 │   │   ├── ml_client.go
-│   │   ├── ml_client_test.go
-│   │   └── chat_service.go    # NEW: OpenAI integration
+│   │   └── ml_client_test.go
 │   ├── utils/                 # Utilities
 │   │   ├── config.go
 │   │   ├── file.go
@@ -674,7 +672,9 @@ This project is part of a personal portfolio. All rights reserved.
 
 ## 👨‍💻 Author
 
-Created as a demonstration of full-stack ML application development, showcasing:
+Created by William Lie, Goose farmer wannabe.
+
+This project demonstrates full-stack ML application development, showcasing:
 - Modern web development (React, Go)
 - Machine learning (PyTorch, transfer learning)
 - Database design and integration (PostgreSQL)
@@ -694,4 +694,6 @@ For questions or issues:
 
 ---
 
-**Built with ❤️ using React, Go, PostgreSQL, PyTorch, FastAPI, and OpenAI GPT-4o-mini**
+**Created by William Lie, with ❤️**
+
+*Built using React, Go, PostgreSQL, PyTorch, FastAPI, and OpenAI GPT-4o-mini*

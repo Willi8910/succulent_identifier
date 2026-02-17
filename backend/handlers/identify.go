@@ -167,6 +167,7 @@ func (h *IdentifyHandler) processMLResponse(mlResponse *models.MLInferenceRespon
 		Watering: careGuide.Watering,
 		Soil:     careGuide.Soil,
 		Notes:    careGuide.Notes,
+		Trivia:   careGuide.Trivia,
 	}
 
 	// Generate UUID for identification

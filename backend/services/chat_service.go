@@ -110,7 +110,8 @@ Please provide specific care guidance in the following format (respond ONLY with
   "sunlight": "<detailed sunlight requirements>",
   "watering": "<detailed watering schedule and tips>",
   "soil": "<detailed soil requirements and recommendations>",
-  "notes": "<additional care tips, growth patterns, common issues, or interesting facts>"
+  "notes": "<additional care tips, growth patterns, or common issues>",
+  "trivia": "<interesting facts, origin, cultural significance, or fun botanical trivia about this plant>"
 }
 
 Be specific, practical, and helpful. Include measurements and frequencies where relevant.`,

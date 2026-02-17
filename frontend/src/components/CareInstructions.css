@@ -71,6 +71,16 @@
   border-left: 4px solid #ed8936;
 }
 
+.care-trivia {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background-color: #f0f9ff;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
 @media (max-width: 600px) {
   .care-container {
     padding: 16px;
@@ -86,7 +96,8 @@
   }
 
   .care-item,
-  .care-notes {
+  .care-notes,
+  .care-trivia {
     padding: 12px;
   }
 

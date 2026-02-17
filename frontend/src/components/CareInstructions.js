@@ -4,7 +4,7 @@ import './CareInstructions.css';
 const CareInstructions = ({ care }) => {
   if (!care) return null;
 
-  const { sunlight, watering, soil, notes } = care;
+  const { sunlight, watering, soil, notes, trivia } = care;
 
   return (
     <div className="care-container">
@@ -13,6 +13,16 @@ const CareInstructions = ({ care }) => {
       </div>
 
       <div className="care-content">
+        {trivia && (
+          <div className="care-trivia">
+            <div className="care-icon">💡</div>
+            <div className="care-details">
+              <div className="care-label">Trivia</div>
+              <div className="care-text">{trivia}</div>
+            </div>
+          </div>
+        )}
+
         <div className="care-item">
           <div className="care-icon">☀️</div>
           <div className="care-details">

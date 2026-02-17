@@ -24,6 +24,7 @@ type CareInstructions struct {
 	Watering string `json:"watering"`
 	Soil     string `json:"soil"`
 	Notes    string `json:"notes"`
+	Trivia   string `json:"trivia,omitempty"`
 }
 
 // PlantInfo represents identified plant information

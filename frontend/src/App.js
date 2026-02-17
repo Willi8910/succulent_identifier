@@ -156,7 +156,12 @@ function App() {
         </main>
 
         <footer className="app-footer">
-          <p>Powered by EfficientNet-B0 and PyTorch</p>
+          <p>Created by <a href="https://github.com/Willi8910" target="_blank" rel="noopener noreferrer">William</a>, Goose farmer wannabe</p>
+          <p className="footer-links">
+            <a href="https://github.com/Willi8910" target="_blank" rel="noopener noreferrer">GitHub</a>
+            {' • '}
+            <a href="https://www.linkedin.com/in/williamlie8910/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+          </p>
         </footer>
       </div>
 
