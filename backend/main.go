@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/joho/godotenv"
 	"succulent-identifier-backend/db"
 	"succulent-identifier-backend/handlers"
 	"succulent-identifier-backend/services"
@@ -12,6 +14,11 @@ import (
 )
 
 func main() {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found or error loading it")
+	}
+
 	// Load configuration
 	config := utils.LoadConfig()
 
@@ -120,19 +127,27 @@ func main() {
 
 	// History endpoints
 	historyHandler := handlers.NewHistoryHandler(identificationRepo, chatRepo)
-	mux.HandleFunc("/history", func(w http.ResponseWriter, r *http.Request) {
+	historyRouteHandler := func(w http.ResponseWriter, r *http.Request) {
 		// Route based on path
 		path := r.URL.Path
-		if path == "/history" {
+		if path == "/history" || path == "/history/" {
 			historyHandler.HandleList(w, r)
 		} else if strings.HasSuffix(path, "/with-chat") {
 			historyHandler.HandleGetWithChat(w, r)
 		} else {
 			historyHandler.HandleGetByID(w, r)
 		}
-	})
+	}
+	// Register both /history and /history/ patterns to handle all history routes
+	mux.HandleFunc("/history", historyRouteHandler)
+	mux.HandleFunc("/history/", historyRouteHandler)
 	mux.HandleFunc("/chat/", historyHandler.HandleGetChatHistory)
 	log.Println("History endpoints registered")
+
+	// Serve uploaded images as static files
+	fileServer := http.FileServer(http.Dir(config.UploadDir))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", fileServer))
+	log.Println("Static file server registered for uploads")
 
 	// Apply middleware
 	handler := utils.CORSMiddleware(mux)

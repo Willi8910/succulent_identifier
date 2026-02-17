@@ -1,10 +1,17 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './ImageUpload.css';
 
-const ImageUpload = ({ onImageSelect, isLoading }) => {
+const ImageUpload = ({ onImageSelect, isLoading, externalImageUrl }) => {
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Update preview when external image URL changes
+  useEffect(() => {
+    if (externalImageUrl) {
+      setPreview(externalImageUrl);
+    }
+  }, [externalImageUrl]);
 
   const handleDrag = (e) => {
     e.preventDefault();

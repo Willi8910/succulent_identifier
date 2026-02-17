@@ -1,7 +1,7 @@
 import React from 'react';
 import './ResultsDisplay.css';
 
-const ResultsDisplay = ({ plant }) => {
+const ResultsDisplay = ({ plant, onOpenChat }) => {
   if (!plant) return null;
 
   const { genus, species, confidence } = plant;
@@ -12,6 +12,13 @@ const ResultsDisplay = ({ plant }) => {
     <div className="results-container">
       <div className="results-header">
         <h2 className="results-title">Identification Results</h2>
+        <button
+          className="chat-icon-button"
+          onClick={onOpenChat}
+          title="Ask questions about this plant"
+        >
+          💬
+        </button>
       </div>
 
       <div className="plant-info">

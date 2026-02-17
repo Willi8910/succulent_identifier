@@ -11,6 +11,9 @@
   border-bottom: 2px solid #e2e8f0;
   padding-bottom: 12px;
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .results-title {
@@ -18,6 +21,52 @@
   font-weight: 700;
   color: #2d3748;
   margin: 0;
+}
+
+.chat-icon-button {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  border: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.chat-icon-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.chat-icon-button:active {
+  transform: scale(0.95);
+}
+
+.chat-icon-button::after {
+  content: attr(title);
+  position: absolute;
+  bottom: -35px;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  font-weight: 500;
+}
+
+.chat-icon-button:hover::after {
+  opacity: 1;
 }
 
 .plant-info {

@@ -77,12 +77,18 @@ func (h *HistoryHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	// Convert to response format
 	items := make([]models.HistoryItem, 0, len(identifications))
 	for _, ident := range identifications {
+		// Extract filename from full path for the API response
+		imagePath := ident.ImagePath
+		if idx := strings.LastIndex(imagePath, "/"); idx != -1 {
+			imagePath = imagePath[idx+1:]
+		}
+
 		items = append(items, models.HistoryItem{
 			ID:         ident.ID,
 			Genus:      ident.Genus,
 			Species:    ident.Species,
 			Confidence: ident.Confidence,
-			ImagePath:  ident.ImagePath,
+			ImagePath:  imagePath,
 			CreatedAt:  ident.CreatedAt,
 		})
 	}
@@ -135,12 +141,18 @@ func (h *HistoryHandler) HandleGetByID(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Extract filename from full path for the API response
+	imagePath := identification.ImagePath
+	if idx := strings.LastIndex(imagePath, "/"); idx != -1 {
+		imagePath = imagePath[idx+1:]
+	}
+
 	response := models.HistoryDetailResponse{
 		ID:         identification.ID,
 		Genus:      identification.Genus,
 		Species:    identification.Species,
 		Confidence: identification.Confidence,
-		ImagePath:  identification.ImagePath,
+		ImagePath:  imagePath,
 		CareGuide:  careGuide,
 		CreatedAt:  identification.CreatedAt,
 	}
@@ -194,6 +206,12 @@ func (h *HistoryHandler) HandleGetWithChat(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Extract filename from full path for the API response
+	imagePath := identification.ImagePath
+	if idx := strings.LastIndex(imagePath, "/"); idx != -1 {
+		imagePath = imagePath[idx+1:]
+	}
+
 	messages := make([]models.ChatMessageResponse, 0, len(chatMessages))
 	for _, msg := range chatMessages {
 		messages = append(messages, models.ChatMessageResponse{
@@ -210,7 +228,7 @@ func (h *HistoryHandler) HandleGetWithChat(w http.ResponseWriter, r *http.Reques
 			Genus:      identification.Genus,
 			Species:    identification.Species,
 			Confidence: identification.Confidence,
-			ImagePath:  identification.ImagePath,
+			ImagePath:  imagePath,
 			CareGuide:  careGuide,
 			CreatedAt:  identification.CreatedAt,
 		},
