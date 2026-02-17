@@ -1,6 +1,6 @@
 # 🌵 Succulent Identifier
 
-A full-stack web application that uses deep learning to identify succulent plants from photos and provides personalized care instructions. Simply upload a photo of your succulent, and the app will identify the species and tell you how to care for it.
+A full-stack web application that uses deep learning to identify succulent plants from photos, provides personalized care instructions, and offers an AI-powered chat assistant to answer your plant care questions. Simply upload a photo of your succulent, get instant identification with confidence scores, view your identification history, and chat with an AI expert about your plant's care needs.
 
 ## 📋 Table of Contents
 
@@ -17,7 +17,7 @@ A full-stack web application that uses deep learning to identify succulent plant
 
 ## 🌟 Overview
 
-Succulent Identifier is a machine learning-powered application designed to help plant enthusiasts identify their succulent plants and learn how to care for them properly. The system uses a fine-tuned EfficientNet-B0 model trained on thousands of succulent images to provide accurate species identification with confidence scores.
+Succulent Identifier is a machine learning-powered application designed to help plant enthusiasts identify their succulent plants and learn how to care for them properly. The system uses a fine-tuned EfficientNet-B0 model trained on thousands of succulent images to provide accurate species identification with confidence scores. Built with PostgreSQL for data persistence and integrated with OpenAI's GPT-4o-mini for intelligent chat assistance, the application offers a complete plant identification and care management experience.
 
 ### What It Can Do
 
@@ -29,8 +29,18 @@ Succulent Identifier is a machine learning-powered application designed to help 
   - Watering schedule
   - Soil recommendations
   - Additional care notes
+- **AI Chat Assistant**: Ask questions about your identified plant using GPT-4o-mini
+  - Context-aware responses based on identification
+  - Persistent chat history
+  - Natural language conversation
+- **Identification History**: View and access all your past identifications
+  - Left sidebar with chronological list
+  - Click to reload historical identifications
+  - Auto-refresh on new uploads
+  - Display historical images
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 - **Real-time Processing**: Fast inference with results in under 2 seconds
+- **Persistent Storage**: PostgreSQL database for identification and chat history
 
 ### Current Species Support
 
@@ -54,7 +64,10 @@ The architecture supports easy expansion to additional species by:
 
 ### Backend API
 - **Go 1.21+** - High-performance REST API
-- **Gorilla Mux** - HTTP routing
+- **PostgreSQL** - Relational database for persistence
+- **GORM** - ORM for database operations
+- **OpenAI Go SDK** - GPT-4o-mini chat integration
+- **godotenv** - Environment variable management
 - **UUID** - Secure file handling
 - **CORS Middleware** - Cross-origin support
 
@@ -84,12 +97,16 @@ The architecture supports easy expansion to additional species by:
 graph TB
     subgraph "Frontend Layer"
         UI[React Web App<br/>Port 3000]
+        ChatDrawer[Chat Drawer Component]
+        HistorySidebar[History Sidebar]
     end
 
     subgraph "Backend API Layer"
         API[Go REST API<br/>Port 8080]
         FileHandler[File Upload Handler]
         CareService[Care Data Service]
+        ChatService[OpenAI Chat Service]
+        HistoryHandler[History Handler]
     end
 
     subgraph "ML Service Layer"
@@ -98,18 +115,36 @@ graph TB
         Preprocessor[Image Preprocessor]
     end
 
+    subgraph "External Services"
+        OpenAI[OpenAI API<br/>GPT-4o-mini]
+    end
+
     subgraph "Data Layer"
+        DB[(PostgreSQL Database)]
         Images[(Uploaded Images)]
         CareData[(care_data.json)]
         ModelFile[(trained_model.pth)]
     end
 
-    UI -->|HTTP POST /identify| API
+    UI -->|POST /identify| API
+    UI -->|POST /chat| API
+    UI -->|GET /history| API
+    ChatDrawer -->|POST /chat| API
+    HistorySidebar -->|GET /history| API
+
     API -->|Save image| FileHandler
     FileHandler -->|Store| Images
     API -->|Get care instructions| CareService
     CareService -->|Read| CareData
-    API -->|HTTP POST /infer| ML
+    API -->|POST /infer| ML
+    API -->|Save identification| DB
+    API -->|Save chat messages| DB
+    API -->|Query history| HistoryHandler
+    HistoryHandler -->|Read| DB
+
+    ChatService -->|Call GPT-4o-mini| OpenAI
+    API -->|Use| ChatService
+
     ML -->|Load| ModelFile
     ML -->|Process| Preprocessor
     Preprocessor -->|Read| Images
@@ -120,7 +155,8 @@ graph TB
     style UI fill:#48bb78,stroke:#38a169,stroke-width:3px,color:#fff
     style API fill:#4299e1,stroke:#3182ce,stroke-width:3px,color:#fff
     style ML fill:#ed8936,stroke:#dd6b20,stroke-width:3px,color:#fff
-    style Model fill:#f6ad55,stroke:#ed8936,stroke-width:2px
+    style DB fill:#9f7aea,stroke:#805ad5,stroke-width:3px,color:#fff
+    style OpenAI fill:#f56565,stroke:#e53e3e,stroke-width:3px,color:#fff
 ```
 
 ### Request Flow
@@ -197,8 +233,10 @@ Before you begin, ensure you have the following installed:
 - **Node.js** >= 14.0.0 and npm >= 6.0.0
 - **Python** >= 3.11
 - **Go** >= 1.21
+- **PostgreSQL** >= 14
 - **Chrome** browser (for scraper)
 - **Git**
+- **OpenAI API Key** (for chat feature)
 
 ### Installation
 
@@ -226,6 +264,24 @@ Before you begin, ensure you have the following installed:
    ```bash
    cd frontend
    npm install
+   cd ..
+   ```
+
+5. **Set up PostgreSQL database**:
+   ```bash
+   # Create database
+   createdb succulent_identifier
+
+   # The backend will auto-migrate tables on startup
+   ```
+
+6. **Configure environment variables** (Backend):
+   ```bash
+   cd backend
+   cp .env.example .env
+   # Edit .env and add:
+   # - DATABASE_URL (PostgreSQL connection string)
+   # - OPENAI_API_KEY (your OpenAI API key)
    cd ..
    ```
 
@@ -266,9 +322,14 @@ go run main.go
 
 Expected output:
 ```
-2026/02/17 10:30:00 Server starting on :8080
-2026/02/17 10:30:00 ML Service URL: http://localhost:8000
-2026/02/17 10:30:00 Care Data loaded successfully
+2026/02/17 22:20:00 Starting Succulent Identifier Backend API...
+2026/02/17 22:20:00 Successfully connected to PostgreSQL database
+2026/02/17 22:20:00 Database migrations completed successfully
+2026/02/17 22:20:00 ML service is healthy
+2026/02/17 22:20:00 Care data loaded successfully
+2026/02/17 22:20:00 Chat service initialized with OpenAI
+2026/02/17 22:20:00 History endpoints registered
+2026/02/17 22:20:00 Server listening on :8080
 ```
 
 **Health check**: Test the API:
@@ -346,6 +407,7 @@ To stop all services:
 ```
 succulent_identifier/
 ├── README.md                    # This file
+├── swagger.yaml                 # OpenAPI/Swagger API specification
 ├── PRD.txt                      # Product Requirements Document
 ├── TDD.txt                      # Technical Design Document
 ├── TODO.md                      # Project progress tracker
@@ -369,9 +431,20 @@ succulent_identifier/
 │   └── README.md              # ML service documentation
 │
 ├── backend/                    # Backend API (Golang)
+│   ├── db/                    # Database layer
+│   │   ├── db.go              # Database connection
+│   │   ├── models.go          # Database models
+│   │   ├── identification_repository.go
+│   │   ├── identification_repository_test.go
+│   │   ├── chat_repository.go
+│   │   └── chat_repository_test.go
 │   ├── handlers/              # HTTP request handlers
 │   │   ├── identify.go
 │   │   ├── identify_test.go
+│   │   ├── chat.go            # NEW: Chat endpoint
+│   │   ├── chat_test.go       # NEW: Chat tests
+│   │   ├── history.go         # NEW: History endpoints
+│   │   ├── history_test.go    # NEW: History tests
 │   │   └── interfaces.go
 │   ├── models/                # Data structures
 │   │   └── types.go
@@ -379,17 +452,19 @@ succulent_identifier/
 │   │   ├── care_data.go
 │   │   ├── care_data_test.go
 │   │   ├── ml_client.go
-│   │   └── ml_client_test.go
+│   │   ├── ml_client_test.go
+│   │   └── chat_service.go    # NEW: OpenAI integration
 │   ├── utils/                 # Utilities
 │   │   ├── config.go
 │   │   ├── file.go
 │   │   ├── middleware.go
 │   │   ├── plant.go
 │   │   └── *_test.go
-│   ├── uploads/               # Temporary file storage
+│   ├── uploads/               # Uploaded images (served via /uploads/)
 │   ├── testdata/              # Test fixtures
 │   ├── main.go                # Entry point
 │   ├── go.mod                 # Go dependencies
+│   ├── .env                   # Environment variables
 │   ├── Dockerfile             # Backend container
 │   ├── README.md              # Backend documentation
 │   └── TESTING.md             # Testing guide
@@ -403,7 +478,13 @@ succulent_identifier/
     │   │   ├── CareInstructions.js
     │   │   ├── ErrorMessage.js
     │   │   ├── Loading.js
+    │   │   ├── ChatDrawer.js      # NEW: Chat drawer
+    │   │   ├── ChatDrawer.css
+    │   │   ├── HistorySidebar.js  # NEW: History sidebar
+    │   │   ├── HistorySidebar.css
     │   │   └── *.css
+    │   ├── services/          # API layer
+    │   │   └── api.js         # NEW: Axios HTTP client
     │   ├── App.js             # Main app component
     │   ├── App.css
     │   ├── index.js
@@ -414,102 +495,24 @@ succulent_identifier/
 
 ## 📡 API Documentation
 
-### Backend API
+Full API documentation is available in the OpenAPI/Swagger specification:
+- **File**: [`swagger.yaml`](./swagger.yaml)
+- **View**: Open the file in [Swagger Editor](https://editor.swagger.io/) or use Swagger UI
 
-**Base URL**: `http://localhost:8080`
+### Quick Reference
 
-#### POST /identify
+**Backend API** (`http://localhost:8080`):
+- `POST /identify` - Identify plant from image
+- `POST /chat` - Chat with AI about identified plant
+- `GET /history` - List past identifications
+- `GET /history/:id` - Get identification details
+- `GET /chat/:identification_id` - Get chat history
+- `GET /uploads/:filename` - Serve uploaded images
+- `GET /health` - Health check
 
-Identify a succulent plant from an uploaded image.
-
-**Request**:
-- Method: `POST`
-- Content-Type: `multipart/form-data`
-- Body: `image` field with JPG/PNG file (max 5MB)
-
-**Response**:
-```json
-{
-  "plant": {
-    "genus": "Haworthia",
-    "species": "Haworthia Zebrina",
-    "confidence": 0.9468
-  },
-  "care": {
-    "sunlight": "Bright, indirect light. Avoid direct sun.",
-    "watering": "Water when soil is completely dry (every 2-3 weeks).",
-    "soil": "Well-draining cactus or succulent mix.",
-    "notes": "Hardy and easy to care for. Great for beginners."
-  }
-}
-```
-
-**Status Codes**:
-- `200 OK` - Success
-- `400 Bad Request` - Invalid file or missing image
-- `500 Internal Server Error` - ML service error
-
-**Confidence Threshold**:
-- If confidence >= 0.4: Returns species name
-- If confidence < 0.4: Returns genus only, shows genus-level care
-
-#### GET /health
-
-Check if the backend API is running.
-
-**Response**:
-```json
-{
-  "status": "healthy"
-}
-```
-
-### ML Service API
-
-**Base URL**: `http://localhost:8000`
-
-#### POST /infer
-
-Get plant predictions from the ML model.
-
-**Request**:
-```json
-{
-  "image_path": "/absolute/path/to/image.jpg"
-}
-```
-
-**Response**:
-```json
-{
-  "predictions": [
-    {
-      "label": "haworthia_zebrina",
-      "confidence": 0.9468
-    },
-    {
-      "label": "cryptanthus_bivittatus",
-      "confidence": 0.0432
-    },
-    {
-      "label": "opuntia_microdasys",
-      "confidence": 0.0100
-    }
-  ]
-}
-```
-
-#### GET /
-
-Health check endpoint.
-
-**Response**:
-```json
-{
-  "status": "healthy",
-  "model_loaded": true
-}
-```
+**ML Service** (`http://localhost:8000`):
+- `POST /infer` - Get plant predictions
+- `GET /` - Health check and model status
 
 ## 📊 Model Performance
 
@@ -545,10 +548,18 @@ Tested on actual plant images:
 
 #### Backend (backend/.env)
 ```bash
-ML_SERVICE_URL=http://localhost:8000
+# Server Configuration
 PORT=8080
+ML_SERVICE_URL=http://localhost:8000
 CARE_DATA_PATH=../care_data.json
 UPLOAD_DIR=./uploads
+SPECIES_THRESHOLD=0.4
+
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost:5432/succulent_identifier?sslmode=disable
+
+# OpenAI Configuration
+OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
 
 #### Frontend (frontend/.env)
@@ -573,6 +584,18 @@ go test ./... -cover
 
 Expected coverage: 70-90%
 
+**Test Suite Includes**:
+- Identification handler tests
+- Chat handler tests (8 tests)
+- History handler tests (17 tests)
+- Database repository tests
+- ML client tests with mock server
+- Care data service tests
+- File operations tests
+- Configuration tests
+
+**Total: 94+ tests**
+
 ### Frontend Tests
 
 ```bash
@@ -588,9 +611,16 @@ npm test
 
 ## 🎯 Future Enhancements
 
+### Implemented ✅
+- [x] **AI Chat Assistant** - Ask questions about identified plants
+- [x] **Identification History** - View and access past identifications
+- [x] **PostgreSQL Database** - Persistent storage for data
+- [x] **Image Display** - View historical images
+
+### Planned 📋
 - [ ] Docker Compose for easy deployment
 - [ ] Support for more succulent species (50+ planned)
-- [ ] User authentication and history
+- [ ] User authentication and multi-user support
 - [ ] Mobile app (React Native)
 - [ ] Image cropping before upload
 - [ ] Batch upload support
@@ -598,6 +628,8 @@ npm test
 - [ ] Plant disease detection
 - [ ] Watering reminders
 - [ ] Progressive Web App (PWA) support
+- [ ] Chat history export
+- [ ] Streaming responses for chat
 
 ## 🤝 Contributing
 
@@ -643,8 +675,12 @@ This project is part of a personal portfolio. All rights reserved.
 Created as a demonstration of full-stack ML application development, showcasing:
 - Modern web development (React, Go)
 - Machine learning (PyTorch, transfer learning)
+- Database design and integration (PostgreSQL)
+- AI integration (OpenAI GPT-4o-mini)
 - System architecture and API design
-- Test-driven development
+- RESTful API development
+- Test-driven development (94+ tests)
+- Real-time features (chat, history)
 - Documentation best practices
 
 ## 📞 Support
@@ -656,4 +692,4 @@ For questions or issues:
 
 ---
 
-**Built with ❤️ using React, Go, PyTorch, and FastAPI**
+**Built with ❤️ using React, Go, PostgreSQL, PyTorch, FastAPI, and OpenAI GPT-4o-mini**

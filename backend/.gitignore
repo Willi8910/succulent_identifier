@@ -35,3 +35,7 @@ Thumbs.db
 # Environment
 .env
 *.env
+
+# Log files
+*.log
+backend.log

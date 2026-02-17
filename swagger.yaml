@@ -1,0 +1,670 @@
+openapi: 3.0.3
+info:
+  title: Succulent Identifier API
+  description: |
+    REST API for the Succulent Identifier application. This API provides endpoints for:
+    - Plant identification using machine learning
+    - AI-powered chat assistance for plant care questions
+    - Identification history management
+    - Image serving
+
+    Built with Go, PostgreSQL, OpenAI GPT-4o-mini, and PyTorch.
+  version: 1.0.0
+  contact:
+    name: Succulent Identifier
+    url: https://github.com/yourusername/succulent_identifier
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server (Backend API)
+  - url: http://localhost:8000
+    description: Local ML service
+
+tags:
+  - name: Identification
+    description: Plant identification endpoints
+  - name: Chat
+    description: AI chat assistant endpoints
+  - name: History
+    description: Identification history endpoints
+  - name: Static Files
+    description: Static file serving
+  - name: Health
+    description: Health check endpoints
+  - name: ML Service
+    description: Machine learning inference service
+
+paths:
+  /identify:
+    post:
+      tags:
+        - Identification
+      summary: Identify a succulent plant
+      description: |
+        Upload an image of a succulent plant to get species identification and care instructions.
+        The API uses a confidence threshold (0.4) to determine whether to show species or genus-level results.
+      operationId: identifyPlant
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Image file (JPG or PNG, max 5MB)
+      responses:
+        '200':
+          description: Successful identification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentifyResponse'
+              examples:
+                high_confidence:
+                  summary: High confidence (>= 0.4) - shows species
+                  value:
+                    id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    plant:
+                      genus: "Haworthia"
+                      species: "Haworthia Zebrina"
+                      confidence: 0.9468
+                    care:
+                      sunlight: "Bright, indirect light. Avoid direct sun."
+                      watering: "Water when soil is completely dry (every 2-3 weeks)."
+                      soil: "Well-draining cactus or succulent mix."
+                      notes: "Hardy and easy to care for. Great for beginners."
+                low_confidence:
+                  summary: Low confidence (< 0.4) - shows genus only
+                  value:
+                    id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    plant:
+                      genus: "Haworthia"
+                      species: ""
+                      confidence: 0.35
+                    care:
+                      sunlight: "Bright, indirect light"
+                      watering: "Water sparingly"
+                      soil: "Well-draining mix"
+                      notes: "Genus-level care information"
+        '400':
+          description: Bad request - invalid file or missing image
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Bad Request"
+                message: "Invalid file type. Only JPG and PNG are supported."
+        '500':
+          description: Internal server error - ML service failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Internal Server Error"
+                message: "Failed to communicate with ML service"
+
+  /chat:
+    post:
+      tags:
+        - Chat
+      summary: Chat with AI about identified plant
+      description: |
+        Send a message to the AI chat assistant about an identified plant. The assistant has context
+        about the plant's identification and care requirements.
+      operationId: sendChatMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            example:
+              identification_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              message: "How often should I water this plant?"
+      responses:
+        '200':
+          description: Successful chat response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              example:
+                message: "Based on the Haworthia zebrina identification, you should water when the soil is completely dry, typically every 2-3 weeks. These plants store water in their leaves, so they're drought-tolerant."
+                message_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                timestamp: "2026-02-17T22:30:00Z"
+        '400':
+          description: Bad request - invalid identification_id or message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Identification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error - OpenAI API failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /history:
+    get:
+      tags:
+        - History
+      summary: Get paginated list of identifications
+      description: Retrieve a paginated list of past plant identifications
+      operationId: getHistory
+      parameters:
+        - name: limit
+          in: query
+          description: Number of items to return (max 100)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Successful response with identification list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryListResponse'
+              example:
+                items:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    genus: "Haworthia"
+                    species: "haworthia_zebrina"
+                    confidence: 0.9468
+                    image_path: "4cb08722-461a-4d6f-acd4-b06516cde3e8.jpg"
+                    created_at: "2026-02-17T22:08:59Z"
+                  - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    genus: "Opuntia"
+                    species: "opuntia_microdasys"
+                    confidence: 0.9730
+                    image_path: "5dc09833-572b-5e8f-bde5-g23456789012.jpg"
+                    created_at: "2026-02-17T21:45:30Z"
+                total: 4
+                limit: 20
+                offset: 0
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /history/{id}:
+    get:
+      tags:
+        - History
+      summary: Get identification details
+      description: Retrieve detailed information about a specific identification
+      operationId: getHistoryById
+      parameters:
+        - name: id
+          in: path
+          description: Identification ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response with identification details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryDetailResponse'
+              example:
+                id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                genus: "Haworthia"
+                species: "haworthia_zebrina"
+                confidence: 0.9468
+                image_path: "4cb08722-461a-4d6f-acd4-b06516cde3e8.jpg"
+                care_guide:
+                  sunlight: "Bright, indirect light. Avoid direct sun."
+                  watering: "Water when soil is completely dry (every 2-3 weeks)."
+                  soil: "Well-draining cactus or succulent mix."
+                  notes: "Hardy and easy to care for. Great for beginners."
+                created_at: "2026-02-17T22:08:59Z"
+        '404':
+          description: Identification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /history/{id}/with-chat:
+    get:
+      tags:
+        - History
+      summary: Get identification with chat history
+      description: Retrieve identification details along with all associated chat messages
+      operationId: getHistoryWithChat
+      parameters:
+        - name: id
+          in: path
+          description: Identification ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response with identification and chat history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryWithChatResponse'
+        '404':
+          description: Identification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chat/{identification_id}:
+    get:
+      tags:
+        - Chat
+      summary: Get chat history for an identification
+      description: Retrieve all chat messages associated with a specific identification
+      operationId: getChatHistory
+      parameters:
+        - name: identification_id
+          in: path
+          description: Identification ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response with chat history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatHistoryResponse'
+              example:
+                identification_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                messages:
+                  - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    message: "How often should I water this plant?"
+                    sender: "user"
+                    created_at: "2026-02-17T22:30:00Z"
+                  - id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                    message: "Water every 2-3 weeks when soil is completely dry."
+                    sender: "llm"
+                    created_at: "2026-02-17T22:30:01Z"
+                total: 2
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /uploads/{filename}:
+    get:
+      tags:
+        - Static Files
+      summary: Serve uploaded image
+      description: Retrieve an uploaded plant image
+      operationId: getUploadedImage
+      parameters:
+        - name: filename
+          in: path
+          description: Image filename
+          required: true
+          schema:
+            type: string
+            example: "4cb08722-461a-4d6f-acd4-b06516cde3e8.jpg"
+      responses:
+        '200':
+          description: Image file
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Image not found
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Backend health check
+      description: Check if the backend API is running
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+
+  /infer:
+    post:
+      servers:
+        - url: http://localhost:8000
+      tags:
+        - ML Service
+      summary: Get plant predictions from ML model
+      description: |
+        Internal endpoint used by the backend to get predictions from the ML model.
+        Not intended for direct client use.
+      operationId: inferPlant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - image_path
+              properties:
+                image_path:
+                  type: string
+                  description: Absolute path to the image file on the server
+                  example: "/absolute/path/to/image.jpg"
+      responses:
+        '200':
+          description: Successful prediction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MLInferenceResponse'
+              example:
+                predictions:
+                  - label: "haworthia_zebrina"
+                    confidence: 0.9468
+                  - label: "cryptanthus_bivittatus"
+                    confidence: 0.0432
+                  - label: "opuntia_microdasys"
+                    confidence: 0.0100
+        '400':
+          description: Bad request - invalid image path
+        '500':
+          description: Internal server error - model inference failure
+
+  /:
+    get:
+      servers:
+        - url: http://localhost:8000
+      tags:
+        - ML Service
+      summary: ML service health check
+      description: Check if the ML service is running and model is loaded
+      operationId: mlHealthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  model_loaded:
+                    type: boolean
+                    example: true
+
+components:
+  schemas:
+    PlantInfo:
+      type: object
+      properties:
+        genus:
+          type: string
+          description: Plant genus name
+          example: "Haworthia"
+        species:
+          type: string
+          description: Plant species name (empty if confidence < threshold)
+          example: "Haworthia Zebrina"
+        confidence:
+          type: number
+          format: float
+          description: Prediction confidence score (0-1)
+          minimum: 0
+          maximum: 1
+          example: 0.9468
+
+    CareInstructions:
+      type: object
+      properties:
+        sunlight:
+          type: string
+          description: Sunlight requirements
+          example: "Bright, indirect light. Avoid direct sun."
+        watering:
+          type: string
+          description: Watering instructions
+          example: "Water when soil is completely dry (every 2-3 weeks)."
+        soil:
+          type: string
+          description: Soil recommendations
+          example: "Well-draining cactus or succulent mix."
+        notes:
+          type: string
+          description: Additional care notes
+          example: "Hardy and easy to care for. Great for beginners."
+
+    IdentifyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identification ID
+        plant:
+          $ref: '#/components/schemas/PlantInfo'
+        care:
+          $ref: '#/components/schemas/CareInstructions'
+
+    ChatRequest:
+      type: object
+      required:
+        - identification_id
+        - message
+      properties:
+        identification_id:
+          type: string
+          format: uuid
+          description: ID of the plant identification
+        message:
+          type: string
+          description: User's question or message
+          example: "How often should I water this plant?"
+
+    ChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: AI assistant's response
+          example: "Water every 2-3 weeks when soil is completely dry."
+        message_id:
+          type: string
+          format: uuid
+          description: Unique message ID
+        timestamp:
+          type: string
+          format: date-time
+          description: Message timestamp
+
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        genus:
+          type: string
+        species:
+          type: string
+        confidence:
+          type: number
+          format: float
+        image_path:
+          type: string
+          description: Image filename (not full path)
+        created_at:
+          type: string
+          format: date-time
+
+    HistoryListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryItem'
+        total:
+          type: integer
+          description: Total number of identifications
+        limit:
+          type: integer
+          description: Number of items per page
+        offset:
+          type: integer
+          description: Current offset
+
+    HistoryDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        genus:
+          type: string
+        species:
+          type: string
+        confidence:
+          type: number
+          format: float
+        image_path:
+          type: string
+        care_guide:
+          $ref: '#/components/schemas/CareInstructions'
+        created_at:
+          type: string
+          format: date-time
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        sender:
+          type: string
+          enum: [user, llm]
+          description: Message sender
+        created_at:
+          type: string
+          format: date-time
+
+    ChatHistoryResponse:
+      type: object
+      properties:
+        identification_id:
+          type: string
+          format: uuid
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        total:
+          type: integer
+
+    HistoryWithChatResponse:
+      type: object
+      properties:
+        identification:
+          $ref: '#/components/schemas/HistoryDetailResponse'
+        chat_messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+
+    MLPrediction:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Plant species label (genus_species format)
+          example: "haworthia_zebrina"
+        confidence:
+          type: number
+          format: float
+          description: Prediction confidence (0-1)
+          example: 0.9468
+
+    MLInferenceResponse:
+      type: object
+      properties:
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MLPrediction'
+          description: Array of predictions sorted by confidence (descending)
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "Bad Request"
+        message:
+          type: string
+          description: Error message
+          example: "Invalid file type"
