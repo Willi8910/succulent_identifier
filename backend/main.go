@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"succulent-identifier-backend/db"
 	"succulent-identifier-backend/handlers"
 	"succulent-identifier-backend/services"
@@ -116,6 +117,22 @@ func main() {
 		mux.HandleFunc("/chat", chatHandler.Handle)
 		log.Println("Chat endpoint registered")
 	}
+
+	// History endpoints
+	historyHandler := handlers.NewHistoryHandler(identificationRepo, chatRepo)
+	mux.HandleFunc("/history", func(w http.ResponseWriter, r *http.Request) {
+		// Route based on path
+		path := r.URL.Path
+		if path == "/history" {
+			historyHandler.HandleList(w, r)
+		} else if strings.HasSuffix(path, "/with-chat") {
+			historyHandler.HandleGetWithChat(w, r)
+		} else {
+			historyHandler.HandleGetByID(w, r)
+		}
+	})
+	mux.HandleFunc("/chat/", historyHandler.HandleGetChatHistory)
+	log.Println("History endpoints registered")
 
 	// Apply middleware
 	handler := utils.CORSMiddleware(mux)
