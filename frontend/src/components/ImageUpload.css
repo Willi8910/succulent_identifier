@@ -52,15 +52,22 @@
 }
 
 .preview-container {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
 }
 
 .preview-image {
   max-width: 100%;
   max-height: 400px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  display: block;
 }
 
 .reset-button {
@@ -73,6 +80,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  display: inline-block;
 }
 
 .reset-button:hover {
@@ -92,7 +100,17 @@
     font-size: 16px;
   }
 
+  .preview-container {
+    gap: 16px;
+  }
+
   .preview-image {
     max-height: 300px;
+    max-width: 100%;
+  }
+
+  .reset-button {
+    width: 100%;
+    max-width: 300px;
   }
 }
