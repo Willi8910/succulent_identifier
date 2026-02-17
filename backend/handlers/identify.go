@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -15,7 +16,8 @@ import (
 // IdentifyHandler handles plant identification requests
 type IdentifyHandler struct {
 	mlClient               MLClientInterface
-	careDataService        CareDataServiceInterface
+	chatService            ChatServiceInterface
+	careRepo               CareInstructionsRepositoryInterface
 	fileUploader           FileUploaderInterface
 	identificationRepo     IdentificationRepositoryInterface
 	speciesThreshold       float64
@@ -24,14 +26,16 @@ type IdentifyHandler struct {
 // NewIdentifyHandler creates a new identify handler
 func NewIdentifyHandler(
 	mlClient MLClientInterface,
-	careDataService CareDataServiceInterface,
+	chatService ChatServiceInterface,
+	careRepo CareInstructionsRepositoryInterface,
 	fileUploader FileUploaderInterface,
 	identificationRepo IdentificationRepositoryInterface,
 	speciesThreshold float64,
 ) *IdentifyHandler {
 	return &IdentifyHandler{
 		mlClient:               mlClient,
-		careDataService:        careDataService,
+		chatService:            chatService,
+		careRepo:               careRepo,
 		fileUploader:           fileUploader,
 		identificationRepo:     identificationRepo,
 		speciesThreshold:       speciesThreshold,
@@ -108,17 +112,61 @@ func (h *IdentifyHandler) processMLResponse(mlResponse *models.MLInferenceRespon
 		displaySpecies = utils.FormatSpecies(topPrediction.Label)
 	}
 
-	// Get care instructions (try species first, fall back to genus)
-	care, err := h.careDataService.GetCareInstructions(species, genus)
+	// Get care instructions with caching strategy
+	var careGuide *db.CareGuide
+
+	// Check cache first
+	cachedCare, err := h.careRepo.GetBySpecies(genus, species)
 	if err != nil {
-		// If no care data found, return generic care instructions
-		log.Printf("No care data found: %v", err)
-		care = models.CareInstructions{
-			Sunlight: "Information not available",
-			Watering: "Information not available",
-			Soil:     "Information not available",
-			Notes:    "Care information is not available for this plant.",
+		log.Printf("Error checking care cache: %v", err)
+	}
+
+	if cachedCare != nil {
+		// Use cached care instructions
+		log.Printf("Using cached care instructions for %s %s", genus, species)
+		careGuide = cachedCare.CareGuide
+	} else {
+		// Generate new care instructions with LLM
+		log.Printf("Generating new care instructions for %s %s", genus, species)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		careGuide, err = h.chatService.GenerateCareInstructions(ctx, genus, species)
+		if err != nil {
+			log.Printf("Failed to generate care instructions: %v", err)
+			// Fallback to generic instructions if LLM fails
+			careGuide = &db.CareGuide{
+				Sunlight: "Provide bright, indirect light for most succulents.",
+				Watering: "Water when soil is completely dry. Succulents prefer infrequent, deep watering.",
+				Soil:     "Use well-draining cactus or succulent mix.",
+				Notes:    "Care information could not be generated. These are general succulent care guidelines.",
+			}
+		} else {
+			// Save to cache for future use
+			cacheEntry := &db.CareInstructionsCache{
+				ID:        uuid.New().String(),
+				Genus:     genus,
+				Species:   species,
+				CareGuide: careGuide,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+
+			if err := h.careRepo.Create(cacheEntry); err != nil {
+				log.Printf("Failed to cache care instructions: %v", err)
+				// Don't fail the request, just log the error
+			} else {
+				log.Printf("Care instructions cached for %s %s", genus, species)
+			}
 		}
+	}
+
+	// Convert to response format
+	care := models.CareInstructions{
+		Sunlight: careGuide.Sunlight,
+		Watering: careGuide.Watering,
+		Soil:     careGuide.Soil,
+		Notes:    careGuide.Notes,
 	}
 
 	// Generate UUID for identification
@@ -131,13 +179,8 @@ func (h *IdentifyHandler) processMLResponse(mlResponse *models.MLInferenceRespon
 		Species:    species,
 		Confidence: topPrediction.Confidence,
 		ImagePath:  imagePath,
-		CareGuide: &db.CareGuide{
-			Sunlight: care.Sunlight,
-			Watering: care.Watering,
-			Soil:     care.Soil,
-			Notes:    care.Notes,
-		},
-		CreatedAt: time.Now(),
+		CareGuide:  careGuide,
+		CreatedAt:  time.Now(),
 	}
 
 	// Save to database

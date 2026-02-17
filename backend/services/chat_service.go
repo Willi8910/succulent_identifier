@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -96,6 +97,70 @@ func (s *ChatService) Chat(ctx context.Context, req ChatRequest) (*ChatResponse,
 	return &ChatResponse{
 		Message: resp.Choices[0].Message.Content,
 	}, nil
+}
+
+// GenerateCareInstructions uses LLM to generate care instructions for a plant
+func (s *ChatService) GenerateCareInstructions(ctx context.Context, genus, species string) (*db.CareGuide, error) {
+	prompt := fmt.Sprintf(
+		`Generate care instructions for the succulent plant: %s %s
+
+Please provide specific care guidance in the following format (respond ONLY with valid JSON, no markdown formatting):
+
+{
+  "sunlight": "<detailed sunlight requirements>",
+  "watering": "<detailed watering schedule and tips>",
+  "soil": "<detailed soil requirements and recommendations>",
+  "notes": "<additional care tips, growth patterns, common issues, or interesting facts>"
+}
+
+Be specific, practical, and helpful. Include measurements and frequencies where relevant.`,
+		genus,
+		species,
+	)
+
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: "You are an expert botanist specializing in succulent plants. Provide accurate, detailed care instructions in JSON format.",
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: prompt,
+		},
+	}
+
+	resp, err := s.client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model:       s.model,
+			Messages:    messages,
+			Temperature: 0.7,
+			MaxTokens:   400,
+		},
+	)
+
+	if err != nil {
+		log.Printf("OpenAI API error while generating care instructions: %v", err)
+		return nil, fmt.Errorf("failed to generate care instructions: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("no response from LLM for care instructions")
+	}
+
+	// Parse JSON response into CareGuide struct
+	careGuide := &db.CareGuide{}
+	content := resp.Choices[0].Message.Content
+
+	// Try to parse JSON directly
+	err = json.Unmarshal([]byte(content), careGuide)
+	if err != nil {
+		log.Printf("Failed to parse care instructions JSON: %v\nContent: %s", err, content)
+		return nil, fmt.Errorf("failed to parse care instructions: %w", err)
+	}
+
+	log.Printf("Generated care instructions for %s %s", genus, species)
+	return careGuide, nil
 }
 
 // buildSystemPrompt creates a system prompt with plant identification context

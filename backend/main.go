@@ -44,6 +44,7 @@ func main() {
 	// Initialize repositories
 	identificationRepo := db.NewIdentificationRepository(db.DB)
 	chatRepo := db.NewChatRepository(db.DB)
+	careInstructionsRepo := db.NewCareInstructionsRepository(db.DB)
 	log.Println("Repositories initialized")
 
 	// Initialize services
@@ -58,21 +59,12 @@ func main() {
 		log.Println("ML service is healthy")
 	}
 
-	// Load care data
-	careDataService, err := services.NewCareDataService(config.CareDataPath)
-	if err != nil {
-		log.Fatalf("Failed to initialize care data service: %v", err)
+	// Initialize chat service (required for LLM-generated care instructions)
+	if config.OpenAIAPIKey == "" {
+		log.Fatalf("Error: OPENAI_API_KEY is required for LLM-generated care instructions")
 	}
-	log.Println("Care data loaded successfully")
-
-	// Initialize chat service
-	var chatService *services.ChatService
-	if config.OpenAIAPIKey != "" {
-		chatService = services.NewChatService(config.OpenAIAPIKey)
-		log.Println("Chat service initialized with OpenAI")
-	} else {
-		log.Println("Warning: OPENAI_API_KEY not set, chat feature will be disabled")
-	}
+	chatService := services.NewChatService(config.OpenAIAPIKey)
+	log.Println("Chat service initialized with OpenAI")
 
 	// Initialize file uploader
 	fileUploader, err := utils.NewFileUploader(
@@ -88,7 +80,8 @@ func main() {
 	// Initialize handlers
 	identifyHandler := handlers.NewIdentifyHandler(
 		mlClient,
-		careDataService,
+		chatService,
+		careInstructionsRepo,
 		fileUploader,
 		identificationRepo,
 		config.SpeciesThreshold,
@@ -119,11 +112,9 @@ func main() {
 	mux.HandleFunc("/identify", identifyHandler.Handle)
 
 	// Chat endpoint
-	if chatService != nil {
-		chatHandler := handlers.NewChatHandler(chatService, identificationRepo, chatRepo)
-		mux.HandleFunc("/chat", chatHandler.Handle)
-		log.Println("Chat endpoint registered")
-	}
+	chatHandler := handlers.NewChatHandler(chatService, identificationRepo, chatRepo)
+	mux.HandleFunc("/chat", chatHandler.Handle)
+	log.Println("Chat endpoint registered")
 
 	// History endpoints
 	historyHandler := handlers.NewHistoryHandler(identificationRepo, chatRepo)

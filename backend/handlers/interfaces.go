@@ -14,11 +14,6 @@ type MLClientInterface interface {
 	HealthCheck() error
 }
 
-// CareDataServiceInterface defines the interface for care data service
-type CareDataServiceInterface interface {
-	GetCareInstructions(species, genus string) (models.CareInstructions, error)
-}
-
 // FileUploaderInterface defines the interface for file uploader
 type FileUploaderInterface interface {
 	ValidateFile(fileHeader *multipart.FileHeader) error
@@ -46,4 +41,12 @@ type ChatRepositoryInterface interface {
 // ChatServiceInterface defines the interface for chat service
 type ChatServiceInterface interface {
 	Chat(ctx context.Context, req services.ChatRequest) (*services.ChatResponse, error)
+	GenerateCareInstructions(ctx context.Context, genus, species string) (*db.CareGuide, error)
+}
+
+// CareInstructionsRepositoryInterface defines the interface for care instructions repository
+type CareInstructionsRepositoryInterface interface {
+	GetBySpecies(genus, species string) (*db.CareInstructionsCache, error)
+	Create(cache *db.CareInstructionsCache) error
+	Update(cache *db.CareInstructionsCache) error
 }

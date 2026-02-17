@@ -44,3 +44,13 @@ type IdentificationWithChats struct {
 	Identification Identification `json:"identification"`
 	ChatMessages   []ChatMessage  `json:"chat_messages"`
 }
+
+// CareInstructionsCache represents cached LLM-generated care instructions
+type CareInstructionsCache struct {
+	ID         string     `json:"id"`
+	Genus      string     `json:"genus"`
+	Species    string     `json:"species"`
+	CareGuide  *CareGuide `json:"care_guide"` // Stored as JSONB in database
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
