@@ -128,8 +128,16 @@ func main() {
 	// History endpoints
 	historyHandler := handlers.NewHistoryHandler(identificationRepo, chatRepo)
 	historyRouteHandler := func(w http.ResponseWriter, r *http.Request) {
-		// Route based on path
+		// Route based on path and method
 		path := r.URL.Path
+
+		// Handle DELETE requests for specific identification
+		if r.Method == http.MethodDelete && path != "/history" && path != "/history/" {
+			historyHandler.HandleDelete(w, r)
+			return
+		}
+
+		// Handle GET requests
 		if path == "/history" || path == "/history/" {
 			historyHandler.HandleList(w, r)
 		} else if strings.HasSuffix(path, "/with-chat") {

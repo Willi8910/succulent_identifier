@@ -48,12 +48,12 @@ func (r *IdentificationRepository) Create(identification *Identification) error 
 	return nil
 }
 
-// GetByID retrieves an identification by ID
+// GetByID retrieves an identification by ID (excludes soft-deleted records)
 func (r *IdentificationRepository) GetByID(id string) (*Identification, error) {
 	query := `
 		SELECT id, genus, species, confidence, image_path, care_guide, created_at
 		FROM identifications
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`
 
 	identification := &Identification{}
@@ -88,10 +88,12 @@ func (r *IdentificationRepository) GetByID(id string) (*Identification, error) {
 }
 
 // GetAll retrieves all identifications ordered by creation date (newest first)
+// Excludes soft-deleted records
 func (r *IdentificationRepository) GetAll(limit, offset int) ([]Identification, error) {
 	query := `
 		SELECT id, genus, species, confidence, image_path, care_guide, created_at
 		FROM identifications
+		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
 	`
@@ -138,13 +140,36 @@ func (r *IdentificationRepository) GetAll(limit, offset int) ([]Identification, 
 	return identifications, nil
 }
 
-// Count returns the total number of identifications
+// Count returns the total number of non-deleted identifications
 func (r *IdentificationRepository) Count() (int, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM identifications`
+	query := `SELECT COUNT(*) FROM identifications WHERE deleted_at IS NULL`
 	err := r.db.QueryRow(query).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count identifications: %w", err)
 	}
 	return count, nil
+}
+
+// Delete performs a soft delete by setting deleted_at timestamp
+func (r *IdentificationRepository) Delete(id string) error {
+	query := `
+		UPDATE identifications
+		SET deleted_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete identification: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("identification not found")
+	}
+
+	return nil
 }

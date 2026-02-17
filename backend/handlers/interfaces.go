@@ -32,6 +32,7 @@ type IdentificationRepositoryInterface interface {
 	GetByID(id string) (*db.Identification, error)
 	GetAll(limit, offset int) ([]db.Identification, error)
 	Count() (int, error)
+	Delete(id string) error
 }
 
 // ChatRepositoryInterface defines the interface for chat repository

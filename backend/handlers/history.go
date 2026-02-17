@@ -287,6 +287,46 @@ func (h *HistoryHandler) HandleGetChatHistory(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(response)
 }
 
+// HandleDelete performs soft delete of an identification
+func (h *HistoryHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
+	// Only accept DELETE requests
+	if r.Method != http.MethodDelete {
+		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Extract ID from URL path
+	// Expecting /history/:id
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(pathParts) < 2 {
+		h.sendError(w, http.StatusBadRequest, "Missing identification ID")
+		return
+	}
+	id := pathParts[1]
+
+	// Soft delete from database
+	err := h.identificationRepo.Delete(id)
+	if err != nil {
+		log.Printf("Failed to delete identification: %v", err)
+		if strings.Contains(err.Error(), "not found") {
+			h.sendError(w, http.StatusNotFound, "Identification not found")
+		} else {
+			h.sendError(w, http.StatusInternalServerError, "Failed to delete identification")
+		}
+		return
+	}
+
+	log.Printf("Successfully soft deleted identification: %s", id)
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Identification deleted successfully",
+	})
+}
+
 // sendError sends an error response
 func (h *HistoryHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")

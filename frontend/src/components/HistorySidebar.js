@@ -28,6 +28,33 @@ const HistorySidebar = ({ isOpen, onToggle, onSelectHistory, currentId, refreshT
     }
   };
 
+  const handleDelete = async (e, item) => {
+    e.stopPropagation(); // Prevent triggering the item click
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete this identification?\n\n${item.genus}${item.species ? ' - ' + item.species : ''}\nConfidence: ${(item.confidence * 100).toFixed(0)}%`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      // Call delete API (we'll implement this)
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+      await fetch(`${API_URL}/history/${item.id}`, {
+        method: 'DELETE',
+      });
+
+      // Remove from local state
+      setHistoryItems(prevItems => prevItems.filter(i => i.id !== item.id));
+    } catch (err) {
+      console.error('Failed to delete history item:', err);
+      alert('Failed to delete this identification. Please try again.');
+    }
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -91,28 +118,47 @@ const HistorySidebar = ({ isOpen, onToggle, onSelectHistory, currentId, refreshT
 
           {!isLoading && !error && historyItems.length > 0 && (
             <div className="history-list">
-              {historyItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`history-item ${item.id === currentId ? 'active' : ''}`}
-                  onClick={() => onSelectHistory(item)}
-                >
-                  <div className="history-item-content">
-                    <div className="history-item-name">
-                      <span className="genus">{item.genus}</span>
-                      {item.species && (
-                        <span className="species">{item.species}</span>
+              {historyItems.map((item) => {
+                const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+                const imageUrl = item.image_path ? `${API_URL}/uploads/${item.image_path}` : null;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`history-item ${item.id === currentId ? 'active' : ''}`}
+                    onClick={() => onSelectHistory(item)}
+                  >
+                    <div className="history-item-content">
+                      <div className="history-item-info">
+                        <div className="history-item-name">
+                          <span className="genus">{item.genus}</span>
+                          {item.species && (
+                            <span className="species">{item.species}</span>
+                          )}
+                        </div>
+                        <div className="history-item-meta">
+                          <span className="confidence">
+                            {(item.confidence * 100).toFixed(0)}%
+                          </span>
+                          <span className="date">{formatDate(item.created_at)}</span>
+                        </div>
+                      </div>
+                      {imageUrl && (
+                        <div className="history-item-thumbnail">
+                          <img src={imageUrl} alt={item.genus} />
+                        </div>
                       )}
                     </div>
-                    <div className="history-item-meta">
-                      <span className="confidence">
-                        {(item.confidence * 100).toFixed(0)}%
-                      </span>
-                      <span className="date">{formatDate(item.created_at)}</span>
-                    </div>
+                    <button
+                      className="delete-button"
+                      onClick={(e) => handleDelete(e, item)}
+                      title="Delete this identification"
+                    >
+                      ✕
+                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

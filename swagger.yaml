@@ -260,6 +260,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - History
+      summary: Soft delete an identification
+      description: Soft deletes an identification by setting its deleted_at timestamp. The record is hidden but not permanently removed from the database.
+      operationId: deleteHistoryById
+      parameters:
+        - name: id
+          in: path
+          description: Identification ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful deletion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Identification deleted successfully"
+        '404':
+          description: Identification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Not Found"
+                message: "Identification not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /history/{id}/with-chat:
     get:

@@ -35,7 +35,9 @@ Succulent Identifier is a machine learning-powered application designed to help 
   - Natural language conversation
 - **Identification History**: View and access all your past identifications
   - Left sidebar with chronological list
+  - Image thumbnails for quick visual reference
   - Click to reload historical identifications
+  - Delete identifications (soft delete with confirmation)
   - Auto-refresh on new uploads
   - Display historical images
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices

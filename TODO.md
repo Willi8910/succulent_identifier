@@ -107,6 +107,7 @@ This document tracks the progress of building the Succulent Identifier applicati
 - [x] **PostgreSQL Database Integration**
   - Identification history table with JSONB care_guide
   - Chat messages table with foreign keys
+  - Soft delete support (deleted_at timestamp)
   - Auto-migration on startup
   - Repository pattern for data access
 - [x] **OpenAI Chat Integration**
@@ -119,6 +120,7 @@ This document tracks the progress of building the Succulent Identifier applicati
   - GET /history - Paginated list
   - GET /history/:id - Single identification detail
   - GET /history/:id/with-chat - With chat history
+  - DELETE /history/:id - Soft delete identification
   - Static file server for /uploads/
 - [x] **Unit tests for database features**
   - Identification repository tests
@@ -204,9 +206,11 @@ Nothing currently in progress. Ready for next phase!
   - Fixed left sidebar (320px)
   - List of past identifications
   - Show genus, species, confidence, timestamp
+  - Image thumbnails (60x60px)
   - Click to load historical data
   - Active item highlighting
   - Refresh button
+  - Delete button (hover to show, with confirmation)
   - Mobile responsive with toggle
   - Auto-refresh on new identification
 - [x] **Image Display Enhancements**

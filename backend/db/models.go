@@ -27,6 +27,7 @@ type Identification struct {
 	ImagePath  string     `json:"image_path"`
 	CareGuide  *CareGuide `json:"care_guide"` // Stored as JSONB in database
 	CreatedAt  time.Time  `json:"created_at"`
+	DeletedAt  *time.Time `json:"deleted_at,omitempty"` // Soft delete timestamp
 }
 
 // ChatMessage represents a chat message in a conversation
