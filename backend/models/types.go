@@ -33,6 +33,7 @@ type PlantInfo struct {
 
 // IdentifyResponse represents the response to the client
 type IdentifyResponse struct {
+	ID    string           `json:"id"`
 	Plant PlantInfo        `json:"plant"`
 	Care  CareInstructions `json:"care"`
 }

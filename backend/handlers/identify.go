@@ -4,16 +4,21 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"succulent-identifier-backend/db"
 	"succulent-identifier-backend/models"
 	"succulent-identifier-backend/utils"
 )
 
 // IdentifyHandler handles plant identification requests
 type IdentifyHandler struct {
-	mlClient         MLClientInterface
-	careDataService  CareDataServiceInterface
-	fileUploader     FileUploaderInterface
-	speciesThreshold float64
+	mlClient               MLClientInterface
+	careDataService        CareDataServiceInterface
+	fileUploader           FileUploaderInterface
+	identificationRepo     IdentificationRepositoryInterface
+	speciesThreshold       float64
 }
 
 // NewIdentifyHandler creates a new identify handler
@@ -21,13 +26,15 @@ func NewIdentifyHandler(
 	mlClient MLClientInterface,
 	careDataService CareDataServiceInterface,
 	fileUploader FileUploaderInterface,
+	identificationRepo IdentificationRepositoryInterface,
 	speciesThreshold float64,
 ) *IdentifyHandler {
 	return &IdentifyHandler{
-		mlClient:         mlClient,
-		careDataService:  careDataService,
-		fileUploader:     fileUploader,
-		speciesThreshold: speciesThreshold,
+		mlClient:               mlClient,
+		careDataService:        careDataService,
+		fileUploader:           fileUploader,
+		identificationRepo:     identificationRepo,
+		speciesThreshold:       speciesThreshold,
 	}
 }
 
@@ -73,7 +80,7 @@ func (h *IdentifyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process predictions with confidence threshold logic
-	response, err := h.processMLResponse(mlResponse)
+	response, err := h.processMLResponse(mlResponse, imagePath)
 	if err != nil {
 		log.Printf("Processing error: %v", err)
 		h.sendError(w, http.StatusInternalServerError, err.Error())
@@ -87,25 +94,18 @@ func (h *IdentifyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 // processMLResponse processes ML predictions and applies confidence threshold logic
-func (h *IdentifyHandler) processMLResponse(mlResponse *models.MLInferenceResponse) (*models.IdentifyResponse, error) {
+func (h *IdentifyHandler) processMLResponse(mlResponse *models.MLInferenceResponse, imagePath string) (*models.IdentifyResponse, error) {
 	// Get top prediction
 	topPrediction := mlResponse.Predictions[0]
 
 	// Parse label to extract genus and species
 	genus, species := utils.ParseLabel(topPrediction.Label)
 
-	// Initialize response
-	response := &models.IdentifyResponse{
-		Plant: models.PlantInfo{
-			Genus:      utils.FormatGenus(genus),
-			Confidence: topPrediction.Confidence,
-		},
-	}
-
 	// Apply confidence threshold logic
+	var displaySpecies string
 	if topPrediction.Confidence >= h.speciesThreshold && species != "" {
 		// High confidence: show species
-		response.Plant.Species = utils.FormatSpecies(topPrediction.Label)
+		displaySpecies = utils.FormatSpecies(topPrediction.Label)
 	}
 
 	// Get care instructions (try species first, fall back to genus)
@@ -121,7 +121,44 @@ func (h *IdentifyHandler) processMLResponse(mlResponse *models.MLInferenceRespon
 		}
 	}
 
-	response.Care = care
+	// Generate UUID for identification
+	identificationID := uuid.New().String()
+
+	// Create identification record for database
+	identification := &db.Identification{
+		ID:         identificationID,
+		Genus:      genus,
+		Species:    species,
+		Confidence: topPrediction.Confidence,
+		ImagePath:  imagePath,
+		CareGuide: &db.CareGuide{
+			Sunlight: care.Sunlight,
+			Watering: care.Watering,
+			Soil:     care.Soil,
+			Notes:    care.Notes,
+		},
+		CreatedAt: time.Now(),
+	}
+
+	// Save to database
+	if err := h.identificationRepo.Create(identification); err != nil {
+		log.Printf("Failed to save identification to database: %v", err)
+		// Note: We don't fail the request if DB save fails, just log the error
+		// The user still gets their identification result
+	} else {
+		log.Printf("Identification saved to database with ID: %s", identificationID)
+	}
+
+	// Build response
+	response := &models.IdentifyResponse{
+		ID: identificationID,
+		Plant: models.PlantInfo{
+			Genus:      utils.FormatGenus(genus),
+			Species:    displaySpecies,
+			Confidence: topPrediction.Confidence,
+		},
+		Care: care,
+	}
 
 	return response, nil
 }

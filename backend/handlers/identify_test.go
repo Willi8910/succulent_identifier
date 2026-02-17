@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"succulent-identifier-backend/db"
 	"succulent-identifier-backend/models"
 	"succulent-identifier-backend/services"
 	"succulent-identifier-backend/utils"
@@ -35,6 +36,37 @@ type mockCareDataService struct {
 
 func (m *mockCareDataService) GetCareInstructions(species, genus string) (models.CareInstructions, error) {
 	return m.care, m.err
+}
+
+// mockIdentificationRepository simulates database operations
+type mockIdentificationRepository struct {
+	createCalled    bool
+	lastCreated     *db.Identification
+	createErr       error
+	getByIDResult   *db.Identification
+	getByIDErr      error
+	getAllResult    []db.Identification
+	getAllErr       error
+	countResult     int
+	countErr        error
+}
+
+func (m *mockIdentificationRepository) Create(identification *db.Identification) error {
+	m.createCalled = true
+	m.lastCreated = identification
+	return m.createErr
+}
+
+func (m *mockIdentificationRepository) GetByID(id string) (*db.Identification, error) {
+	return m.getByIDResult, m.getByIDErr
+}
+
+func (m *mockIdentificationRepository) GetAll(limit, offset int) ([]db.Identification, error) {
+	return m.getAllResult, m.getAllErr
+}
+
+func (m *mockIdentificationRepository) Count() (int, error) {
+	return m.countResult, m.countErr
 }
 
 func TestIdentifyHandlerHandle(t *testing.T) {
@@ -133,11 +165,15 @@ func TestIdentifyHandlerHandle(t *testing.T) {
 				err:  tt.careError,
 			}
 
+			// Create mock repository
+			mockRepo := &mockIdentificationRepository{}
+
 			// Create handler
 			handler := NewIdentifyHandler(
 				mlClient,
 				careService,
 				fileUploader,
+				mockRepo,
 				tt.speciesThreshold,
 			)
 
@@ -164,6 +200,11 @@ func TestIdentifyHandlerHandle(t *testing.T) {
 					return
 				}
 
+				// Check if ID is present
+				if response.ID == "" {
+					t.Error("Response missing identification ID")
+				}
+
 				// Check if genus is present
 				if response.Plant.Genus == "" {
 					t.Error("Response missing genus")
@@ -181,6 +222,24 @@ func TestIdentifyHandlerHandle(t *testing.T) {
 				// Check care instructions
 				if response.Care.Sunlight == "" {
 					t.Error("Response missing care sunlight")
+				}
+
+				// Verify repository Create was called
+				if !mockRepo.createCalled {
+					t.Error("Expected repository Create to be called")
+				}
+
+				// Verify saved data
+				if mockRepo.lastCreated != nil {
+					if mockRepo.lastCreated.Genus == "" {
+						t.Error("Saved identification missing genus")
+					}
+					if mockRepo.lastCreated.ImagePath == "" {
+						t.Error("Saved identification missing image path")
+					}
+					if mockRepo.lastCreated.CareGuide == nil {
+						t.Error("Saved identification missing care guide")
+					}
 				}
 			}
 		})
@@ -271,14 +330,18 @@ func TestProcessMLResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Create mock repository
+			mockRepo := &mockIdentificationRepository{}
+
 			handler := NewIdentifyHandler(
 				mlClient,
 				careService,
 				fileUploader,
+				mockRepo,
 				tt.speciesThreshold,
 			)
 
-			response, err := handler.processMLResponse(tt.mlResponse)
+			response, err := handler.processMLResponse(tt.mlResponse, "/test/image.jpg")
 
 			if err != nil {
 				t.Errorf("processMLResponse() unexpected error: %v", err)
@@ -301,6 +364,156 @@ func TestProcessMLResponse(t *testing.T) {
 				t.Errorf("processMLResponse() confidence = %v, expected %v",
 					response.Plant.Confidence, tt.mlResponse.Predictions[0].Confidence)
 			}
+
+			// Verify identification ID is generated
+			if response.ID == "" {
+				t.Error("processMLResponse() missing identification ID")
+			}
 		})
 	}
 }
+
+func TestIdentifyHandlerDatabaseIntegration(t *testing.T) {
+	// Setup test environment
+	uploadDir := "../testdata/uploads_db_test"
+	os.MkdirAll(uploadDir, 0755)
+	defer os.RemoveAll(uploadDir)
+
+	fileUploader, _ := utils.NewFileUploader(uploadDir, 5*1024*1024, []string{".jpg", ".png"})
+
+	tests := []struct {
+		name               string
+		mlResponse         *models.MLInferenceResponse
+		careInstructions   models.CareInstructions
+		createErr          error
+		expectRepoCall     bool
+		expectedGenusInDB  string
+		expectedSpeciesInDB string
+	}{
+		{
+			name: "Successful database save",
+			mlResponse: &models.MLInferenceResponse{
+				Predictions: []models.MLPrediction{
+					{Label: "haworthia_zebrina", Confidence: 0.85},
+				},
+			},
+			careInstructions: models.CareInstructions{
+				Sunlight: "Bright indirect light",
+				Watering: "Water when dry",
+				Soil:     "Well-draining",
+				Notes:    "Easy care",
+			},
+			createErr:           nil,
+			expectRepoCall:      true,
+			expectedGenusInDB:   "haworthia",
+			expectedSpeciesInDB: "haworthia_zebrina",
+		},
+		{
+			name: "Database save fails but request succeeds",
+			mlResponse: &models.MLInferenceResponse{
+				Predictions: []models.MLPrediction{
+					{Label: "aloe_vera", Confidence: 0.90},
+				},
+			},
+			careInstructions: models.CareInstructions{
+				Sunlight: "Full sun",
+				Watering: "Infrequent",
+				Soil:     "Sandy",
+				Notes:    "Drought tolerant",
+			},
+			createErr:           db.ErrNotFound,
+			expectRepoCall:      true,
+			expectedGenusInDB:   "aloe",
+			expectedSpeciesInDB: "aloe_vera",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup mocks
+			mlClient := &mockMLClient{
+				response: tt.mlResponse,
+				err:      nil,
+			}
+
+			careService := &mockCareDataService{
+				care: tt.careInstructions,
+				err:  nil,
+			}
+
+			mockRepo := &mockIdentificationRepository{
+				createErr: tt.createErr,
+			}
+
+			// Create handler
+			handler := NewIdentifyHandler(
+				mlClient,
+				careService,
+				fileUploader,
+				mockRepo,
+				0.4,
+			)
+
+			// Create request
+			req := createMultipartRequest(t, "test.jpg", []byte("fake image"))
+
+			// Create response recorder
+			rr := httptest.NewRecorder()
+
+			// Call handler
+			handler.Handle(rr, req)
+
+			// Should always return 200 OK even if DB save fails
+			if rr.Code != http.StatusOK {
+				t.Errorf("Handler returned wrong status code: got %v, expected %v",
+					rr.Code, http.StatusOK)
+			}
+
+			// Verify repository was called
+			if tt.expectRepoCall && !mockRepo.createCalled {
+				t.Error("Expected repository Create to be called")
+			}
+
+			// Verify data saved to repository
+			if mockRepo.createCalled && mockRepo.lastCreated != nil {
+				if mockRepo.lastCreated.Genus != tt.expectedGenusInDB {
+					t.Errorf("Expected genus %s in DB, got %s",
+						tt.expectedGenusInDB, mockRepo.lastCreated.Genus)
+				}
+
+				if mockRepo.lastCreated.Species != tt.expectedSpeciesInDB {
+					t.Errorf("Expected species %s in DB, got %s",
+						tt.expectedSpeciesInDB, mockRepo.lastCreated.Species)
+				}
+
+				if mockRepo.lastCreated.CareGuide == nil {
+					t.Error("Expected care guide in DB")
+				} else {
+					if mockRepo.lastCreated.CareGuide.Sunlight != tt.careInstructions.Sunlight {
+						t.Error("Care guide sunlight mismatch in DB")
+					}
+				}
+
+				if mockRepo.lastCreated.ImagePath == "" {
+					t.Error("Expected image path in DB")
+				}
+
+				if mockRepo.lastCreated.ID == "" {
+					t.Error("Expected ID in DB")
+				}
+			}
+
+			// Verify response contains ID
+			var response models.IdentifyResponse
+			if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+				t.Errorf("Failed to decode response: %v", err)
+				return
+			}
+
+			if response.ID == "" {
+				t.Error("Response missing identification ID")
+			}
+		})
+	}
+}
+

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"mime/multipart"
+	"succulent-identifier-backend/db"
 	"succulent-identifier-backend/models"
 )
 
@@ -21,4 +22,12 @@ type FileUploaderInterface interface {
 	ValidateFile(fileHeader *multipart.FileHeader) error
 	SaveFile(file multipart.File, fileHeader *multipart.FileHeader) (string, error)
 	DeleteFile(filepath string) error
+}
+
+// IdentificationRepositoryInterface defines the interface for identification repository
+type IdentificationRepositoryInterface interface {
+	Create(identification *db.Identification) error
+	GetByID(id string) (*db.Identification, error)
+	GetAll(limit, offset int) ([]db.Identification, error)
+	Count() (int, error)
 }

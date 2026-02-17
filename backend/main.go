@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"succulent-identifier-backend/db"
 	"succulent-identifier-backend/handlers"
 	"succulent-identifier-backend/services"
 	"succulent-identifier-backend/utils"
@@ -18,6 +19,23 @@ func main() {
 	log.Printf("ML Service URL: %s", config.MLServiceURL)
 	log.Printf("Upload Directory: %s", config.UploadDir)
 	log.Printf("Species Threshold: %.2f", config.SpeciesThreshold)
+
+	// Initialize database connection
+	if err := db.InitDB(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
+	log.Println("Database connected successfully")
+
+	// Run database migrations
+	if err := db.RunMigrations(db.DB); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+	log.Println("Database migrations completed")
+
+	// Initialize repositories
+	identificationRepo := db.NewIdentificationRepository(db.DB)
+	log.Println("Repositories initialized")
 
 	// Initialize services
 	mlClient := services.NewMLClient(config.MLServiceURL)
@@ -54,6 +72,7 @@ func main() {
 		mlClient,
 		careDataService,
 		fileUploader,
+		identificationRepo,
 		config.SpeciesThreshold,
 	)
 
