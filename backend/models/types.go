@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // MLPrediction represents a single prediction from the ML service
 type MLPrediction struct {
 	Label      string  `json:"label"`
@@ -42,4 +44,17 @@ type IdentifyResponse struct {
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
+}
+
+// ChatRequest represents a chat request from the client
+type ChatRequest struct {
+	IdentificationID string `json:"identification_id"`
+	Message          string `json:"message"`
+}
+
+// ChatResponse represents a chat response to the client
+type ChatResponse struct {
+	Message   string    `json:"message"`
+	MessageID string    `json:"message_id"`
+	Timestamp time.Time `json:"timestamp"`
 }

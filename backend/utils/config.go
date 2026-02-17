@@ -23,6 +23,9 @@ type Config struct {
 
 	// Care data path
 	CareDataPath string
+
+	// OpenAI configuration
+	OpenAIAPIKey string
 }
 
 // LoadConfig loads configuration from environment variables
@@ -38,6 +41,7 @@ func LoadConfig() *Config {
 		AllowedExtensions: []string{".jpg", ".jpeg", ".png"},
 		SpeciesThreshold:  speciesThreshold,
 		CareDataPath:      getEnv("CARE_DATA_PATH", "../care_data.json"),
+		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 	}
 }
 

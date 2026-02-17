@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"mime/multipart"
 	"succulent-identifier-backend/db"
 	"succulent-identifier-backend/models"
+	"succulent-identifier-backend/services"
 )
 
 // MLClientInterface defines the interface for ML service client
@@ -30,4 +32,17 @@ type IdentificationRepositoryInterface interface {
 	GetByID(id string) (*db.Identification, error)
 	GetAll(limit, offset int) ([]db.Identification, error)
 	Count() (int, error)
+}
+
+// ChatRepositoryInterface defines the interface for chat repository
+type ChatRepositoryInterface interface {
+	Create(message *db.ChatMessage) error
+	GetByIdentificationID(identificationID string) ([]db.ChatMessage, error)
+	GetLatestMessages(identificationID string, limit int) ([]db.ChatMessage, error)
+	CountByIdentificationID(identificationID string) (int, error)
+}
+
+// ChatServiceInterface defines the interface for chat service
+type ChatServiceInterface interface {
+	Chat(ctx context.Context, req services.ChatRequest) (*services.ChatResponse, error)
 }

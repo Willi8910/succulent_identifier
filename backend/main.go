@@ -35,6 +35,7 @@ func main() {
 
 	// Initialize repositories
 	identificationRepo := db.NewIdentificationRepository(db.DB)
+	chatRepo := db.NewChatRepository(db.DB)
 	log.Println("Repositories initialized")
 
 	// Initialize services
@@ -55,6 +56,15 @@ func main() {
 		log.Fatalf("Failed to initialize care data service: %v", err)
 	}
 	log.Println("Care data loaded successfully")
+
+	// Initialize chat service
+	var chatService *services.ChatService
+	if config.OpenAIAPIKey != "" {
+		chatService = services.NewChatService(config.OpenAIAPIKey)
+		log.Println("Chat service initialized with OpenAI")
+	} else {
+		log.Println("Warning: OPENAI_API_KEY not set, chat feature will be disabled")
+	}
 
 	// Initialize file uploader
 	fileUploader, err := utils.NewFileUploader(
@@ -99,6 +109,13 @@ func main() {
 
 	// Identify endpoint
 	mux.HandleFunc("/identify", identifyHandler.Handle)
+
+	// Chat endpoint
+	if chatService != nil {
+		chatHandler := handlers.NewChatHandler(chatService, identificationRepo, chatRepo)
+		mux.HandleFunc("/chat", chatHandler.Handle)
+		log.Println("Chat endpoint registered")
+	}
 
 	// Apply middleware
 	handler := utils.CORSMiddleware(mux)
