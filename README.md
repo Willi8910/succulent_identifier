@@ -2,6 +2,13 @@
 
 A full-stack web application that uses deep learning to identify succulent plants from photos, provides personalized care instructions, and offers an AI-powered chat assistant to answer your plant care questions. Simply upload a photo of your succulent, get instant identification with confidence scores, view your identification history, and chat with an AI expert about your plant's care needs.
 
+Demo video:
+
+https://github.com/user-attachments/assets/bb271ab2-196f-4018-871d-27baadb2228d
+
+
+
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
