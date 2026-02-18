@@ -609,27 +609,6 @@ npm test
 2. Upload test images from `ml_service/data/raw/`
 3. Verify predictions and care instructions
 
-## 🎯 Future Enhancements
-
-### Implemented ✅
-- [x] **AI Chat Assistant** - Ask questions about identified plants
-- [x] **Identification History** - View and access past identifications
-- [x] **PostgreSQL Database** - Persistent storage for data
-- [x] **Image Display** - View historical images
-
-### Planned 📋
-- [ ] Docker Compose for easy deployment
-- [ ] Support for more succulent species (50+ planned)
-- [ ] User authentication and multi-user support
-- [ ] Mobile app (React Native)
-- [ ] Image cropping before upload
-- [ ] Batch upload support
-- [ ] Community contributions (user-uploaded images)
-- [ ] Plant disease detection
-- [ ] Watering reminders
-- [ ] Progressive Web App (PWA) support
-- [ ] Chat history export
-- [ ] Streaming responses for chat
 
 ## 🤝 Contributing
 
@@ -650,17 +629,13 @@ npm test
 3. **Update labels**:
    - Edit `ml_service/labels.json`
 
-4. **Add care data**:
-   - Edit `care_data.json`
-   - Add both genus and species entries
-
-5. **Retrain the model**:
+4. **Retrain the model**:
    ```bash
    cd ml_service/src
    python train.py
    ```
 
-6. **Test the new model**:
+5. **Test the new model**:
    ```bash
    python inference.py
    # Test via API or frontend
@@ -685,12 +660,9 @@ This project demonstrates full-stack ML application development, showcasing:
 - Real-time features (chat, history)
 - Documentation best practices
 
-## 📞 Support
-
 For questions or issues:
-1. Check the individual service README files
-2. Review the [TODO.md](./TODO.md) for known issues
-3. Refer to the [TDD.txt](./TDD.txt) for technical details
+1. Review the [TODO.md](./TODO.md) for known issues
+2. Refer to the [TDD.txt](./TDD.txt) for technical details
 
 ---
 

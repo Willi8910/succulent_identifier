@@ -5,10 +5,10 @@ Product Name:
 Succulent Identifier (Working Title)
 
 Document Version:
-v1.0
+v2.0
 
 Last Updated:
-2026-02-02
+2026-02-18
 
 Author:
 William
@@ -23,7 +23,9 @@ of a succulent plant and receive:
 - The most likely plant genus
 - The most likely plant species (if confidence is sufficient)
 - A confidence score
-- Basic care instructions for the identified plant
+- LLM-generated care instructions with interesting trivia
+- Access to an AI chat assistant for plant care questions
+- Identification history with image thumbnails
 
 The product is designed for hobbyist-level accuracy, not professional botanical use.
 The system prioritizes transparency and trust over absolute certainty.
@@ -35,16 +37,19 @@ The system prioritizes transparency and trust over absolute certainty.
 Goals:
 - Identify succulent plants from a single uploaded image
 - Provide genus + species-level identification where possible
-- Show plant care instructions immediately after identification
-- Run fully local-first (no external ML APIs)
+- Show LLM-generated plant care instructions with trivia immediately after identification
+- Allow users to chat with AI about their identified plants
+- Maintain identification history with images
+- Run ML inference locally (ML model local, LLM via OpenAI API)
 - Allow future dataset and model iteration
 
-Non-Goals (V1):
+Non-Goals (V2):
 - Native mobile apps
-- User accounts or authentication
+- User accounts or multi-user authentication
 - Community features (comments, sharing, etc.)
 - Guaranteed species-level accuracy
 - Offline browser usage
+- Real-time streaming chat responses
 
 --------------------------------------------------
 3. TARGET USERS
@@ -65,15 +70,32 @@ User Expectations:
 4. USER EXPERIENCE FLOW
 --------------------------------------------------
 
+Main Identification Flow:
 1. User opens web app
-2. User uploads a photo of a succulent
-3. System processes image
-4. User sees:
+2. User sees history sidebar with past identifications (if any)
+3. User uploads a photo of a succulent
+4. System processes image
+5. User sees:
    - Predicted genus
    - Predicted species (if confident)
    - Confidence score
-   - Care instructions
-5. User can retry with another photo
+   - LLM-generated care instructions with trivia
+   - "Ask a Question" button for AI chat
+6. User can retry with another photo
+7. User can click on history items to reload past identifications
+
+Chat Flow:
+1. User clicks "Ask a Question" after identification
+2. Chat drawer opens from the right
+3. User asks questions about plant care
+4. AI assistant responds with contextual advice
+5. Chat history is saved and can be reloaded
+
+History Flow:
+1. User views left sidebar with past identifications
+2. Each item shows genus, species, confidence, thumbnail, and timestamp
+3. User can click to reload historical identification
+4. User can hover and delete identifications (soft delete with confirmation)
 
 If confidence is low:
 - App clearly states species is uncertain
@@ -98,14 +120,33 @@ If confidence is low:
 - Species shown only if confidence >= threshold (e.g., 0.4)
 
 5.4 Care Instructions
-- Species-specific care if available
-- Fallback to genus-level care
-- Data stored as JSON initially
+- Generated dynamically via OpenAI GPT-4o-mini LLM
+- Cached by species in PostgreSQL database
+- Includes: sunlight, watering, soil, notes, and trivia
+- Species-level generation with genus fallback context
+- First request generates and caches, subsequent requests use cache
 
-5.5 Error Handling
+5.5 Identification History
+- All identifications saved to PostgreSQL database
+- Display in left sidebar with chronological ordering
+- Show genus, species, confidence, image thumbnail, timestamp
+- Click to reload historical identification with care instructions
+- Delete functionality with confirmation (soft delete)
+- Auto-refresh sidebar when new identification is made
+
+5.6 AI Chat Assistant
+- Context-aware chat using OpenAI GPT-4o-mini
+- System prompt includes identified plant information
+- Chat history saved per identification in database
+- Drawer UI that slides from right side
+- Load historical chat messages when viewing past identifications
+
+5.7 Error Handling
 - Invalid image → user-friendly message
 - ML service unavailable → graceful failure
 - Low confidence → explain uncertainty
+- OpenAI API failure → fallback to generic care instructions
+- Database errors → log but don't fail request
 
 --------------------------------------------------
 6. TECHNICAL ARCHITECTURE
@@ -117,16 +158,22 @@ Frontend:
 
 Backend:
 - Golang REST API
-- Handles uploads, ML calls, and response shaping
+- Handles uploads, ML calls, LLM calls, and response shaping
+- PostgreSQL database for persistence
 
 ML Service:
 - Python
 - PyTorch for training and inference
 - FastAPI for inference endpoint
 
+LLM Service:
+- OpenAI GPT-4o-mini API
+- Used for care instruction generation and chat
+
 Hosting:
-- Local-first
+- Local-first development
 - Docker-compatible setup
+- PostgreSQL database required
 
 --------------------------------------------------
 7. ML MODEL REQUIREMENTS
@@ -160,51 +207,99 @@ Model Output:
 Backend API:
 POST /identify
 - Accepts image upload
-- Returns plant identification + care info
+- Returns plant identification + LLM-generated care info + identification ID
+- Saves identification to database with image path
+
+POST /chat
+- Accepts identification_id and user message
+- Returns AI assistant response
+- Saves chat message to database
+
+GET /history
+- Returns paginated list of past identifications
+- Includes genus, species, confidence, image_path, timestamp, id
+
+GET /history/:id
+- Returns single identification with care guide
+
+GET /history/:id/with-chat
+- Returns identification with full chat history
+
+DELETE /history/:id
+- Soft deletes identification (sets deleted_at timestamp)
+
+GET /uploads/:filename
+- Serves uploaded images as static files
+
+GET /health
+- Health check endpoint
 
 ML Inference API:
 POST /infer
 - Accepts image path
 - Returns Top-K predictions
 
-Responses must be JSON.
+All responses must be JSON.
 
 --------------------------------------------------
 9. CARE DATA REQUIREMENTS
 --------------------------------------------------
 
-Data Format:
-- JSON file
-- Keyed by species and genus
+Data Generation:
+- Generated dynamically via OpenAI GPT-4o-mini LLM
+- Cached in PostgreSQL database (care_instructions table)
+- Keyed by genus and species combination
+
+Caching Strategy:
+- Check database cache first by genus + species
+- If not cached, generate via LLM with 30-second timeout
+- Save generated care to cache for future requests
+- Cache is unique per species
 
 Fallback Logic:
-- Species care → if exists
-- Else → genus care
+- LLM generation failure → generic fallback care instructions
+- Database save failure → log error but still return result to user
 
-Care Fields (minimum):
-- Sunlight
-- Watering
-- Soil
+Care Fields:
+- Sunlight (required)
+- Watering (required)
+- Soil (required)
 - Notes (optional)
+- Trivia (optional) - interesting facts about the plant
 
 --------------------------------------------------
 10. NON-FUNCTIONAL REQUIREMENTS
 --------------------------------------------------
 
 Performance:
-- Inference under a few seconds locally
-- No strict real-time requirement
+- ML inference under 1 second locally
+- LLM care generation: 2-3 seconds on first request per species
+- Cached care instructions: <100ms
+- Chat responses: 2-5 seconds depending on OpenAI API
+- Overall end-to-end: <3 seconds for cached species
 
 Scalability:
 - Designed for single-user / small usage initially
+- PostgreSQL supports multiple concurrent requests
+- LLM cache reduces OpenAI API costs
 
 Maintainability:
-- Clear separation between FE, BE, and ML
+- Clear separation between FE, BE, ML, and LLM services
 - Versioned models
+- Repository pattern for database access
+- Comprehensive unit tests (94+ tests, 70-90% coverage)
 
 Security:
-- No authentication required (V1)
-- Basic file upload validation
+- No user authentication required (V2)
+- Basic file upload validation (type, size)
+- OpenAI API key stored in environment variables
+- SQL injection protected via ORM (GORM)
+- No sensitive data exposed in API responses
+
+Reliability:
+- LLM failures don't crash the application (fallback care)
+- Database save failures logged but don't fail requests
+- Soft delete prevents accidental data loss
 
 --------------------------------------------------
 11. SUCCESS METRICS
@@ -216,14 +311,23 @@ Security:
 - Model can be retrained with new data easily
 
 --------------------------------------------------
-12. FUTURE CONSIDERATIONS (POST-V1)
+12. FUTURE CONSIDERATIONS (POST-V2)
 --------------------------------------------------
 
+- User accounts and multi-user support
 - User correction feedback loop
 - Multi-image uploads
+- Batch identification
 - Genus → species two-step model
-- General plant identification
-- Mobile-friendly PWA
+- General plant identification beyond succulents
+- Mobile-friendly PWA with offline support
+- Chat response streaming
+- Export chat history
+- Plant disease detection
+- Watering reminders
+- Community features (sharing, comments)
+- Image cropping before upload
+- Docker Compose for easy deployment
 
 --------------------------------------------------
 END OF DOCUMENT

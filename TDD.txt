@@ -5,13 +5,13 @@ Product:
 Succulent Identifier (Web)
 
 Document Version:
-v1.0
+v2.0
 
 Related Document:
-PRD v1.0
+PRD v2.0
 
 Last Updated:
-2026-02-02
+2026-02-18
 
 Author:
 William
@@ -21,56 +21,74 @@ William
 --------------------------------------------------
 
 The system identifies succulent plants from user-uploaded images and
-returns genus-level and species-level predictions along with care
-instructions. The system is designed as a three-layer architecture:
+returns genus-level and species-level predictions along with LLM-generated
+care instructions. Users can chat with an AI assistant and view their
+identification history. The system is designed as a multi-layer architecture:
 
 - Frontend (React JS)
 - Backend API (Golang)
 - ML Service (Python + PyTorch)
+- Database (PostgreSQL)
+- LLM Service (OpenAI GPT-4o-mini)
 
-The system is designed for local-first deployment and future iteration.
+The system is designed for local-first deployment with cloud LLM integration.
 
 --------------------------------------------------
 2. HIGH-LEVEL ARCHITECTURE
 --------------------------------------------------
 
-[ React JS ]
-    |
-    | HTTP (multipart image upload)
-    v
-[ Golang API ]
-    |
-    | HTTP (JSON request)
-    v
-[ Python ML Service ]
-    |
-    | JSON response
-    v
-[ Golang API ]
-    |
-    | JSON response
-    v
-[ React JS ]
+[ React JS ] <---> [ Golang API ] <---> [ PostgreSQL DB ]
+                        |                        ^
+                        |                        |
+                        v                        |
+                [ Python ML Service ]            |
+                        |                        |
+                        v                        |
+                [ OpenAI GPT-4o-mini API ]-------+
+
+Data Flow:
+1. Image Upload: React → Go API → ML Service → Go API → React
+2. Care Generation: Go API → Check DB Cache → (if miss) OpenAI → Save to DB
+3. Chat: React → Go API → OpenAI → Save to DB → Go API → React
+4. History: React → Go API → PostgreSQL → Go API → React
 
 --------------------------------------------------
 3. FRONTEND DESIGN (REACT JS)
 --------------------------------------------------
 
 Responsibilities:
-- Image upload UI
-- Display identification result
-- Display care instructions
+- Image upload UI with drag-and-drop
+- Display identification result with confidence bar
+- Display LLM-generated care instructions with trivia
+- Chat drawer for AI assistant conversations
+- History sidebar with past identifications
+- Image thumbnail display for history items
+- Delete functionality with confirmation
 - Handle error and retry states
+- Responsive design for mobile and desktop
+
+Key Components:
+- ImageUpload.js - Upload and preview
+- ResultsDisplay.js - Genus, species, confidence (700px wide)
+- CareInstructions.js - Sunlight, watering, soil, notes, trivia (700px wide)
+- ChatDrawer.js - Sliding drawer for AI chat
+- HistorySidebar.js - Left sidebar with history list (320px)
+- ErrorMessage.js - Error handling
+- Loading.js - Loading states
 
 Key Notes:
-- No authentication in V1
+- No authentication in V2
 - Single image per request
 - Confidence must always be visible
 - Species shown only if confidence >= threshold
+- Trivia shown at top of care instructions
+- Chat context includes identified plant information
+- History auto-refreshes on new identification
 
 Frontend does NOT:
 - Perform image preprocessing
 - Perform ML inference
+- Generate care instructions
 
 --------------------------------------------------
 4. BACKEND DESIGN (GOLANG API)
@@ -80,17 +98,35 @@ Frontend does NOT:
 
 - Receive image uploads
 - Validate file type and size
-- Persist uploaded image locally
+- Persist uploaded image locally (permanent storage)
 - Call ML inference service
 - Interpret ML predictions
-- Map prediction to care data
+- Generate or retrieve care instructions via LLM/cache
+- Save identification to PostgreSQL database
+- Handle chat requests with OpenAI API
+- Serve identification history from database
+- Serve uploaded images as static files
+- Implement soft delete for history items
 - Return unified response to frontend
 
-4.2 File Handling Strategy
+4.2 Database Schema
 
-- Images stored temporarily in a local directory (e.g., /uploads)
-- Images may be deleted after inference (configurable)
+Tables:
+- identifications: id, genus, species, confidence, image_path, care_guide (JSONB), created_at, deleted_at
+- chat_messages: id, identification_id (FK), message, sender, created_at
+- care_instructions: id, genus, species, care_guide (JSONB), created_at, updated_at
+
+Indexes:
+- identifications: primary key (id), index on created_at, deleted_at
+- chat_messages: primary key (id), foreign key on identification_id
+- care_instructions: unique index on (genus, species)
+
+4.3 File Handling Strategy
+
+- Images stored permanently in local directory (/uploads)
 - Filenames are generated UUIDs
+- Files served via GET /uploads/:filename endpoint
+- Images NOT deleted after inference (needed for history)
 
 --------------------------------------------------
 5. ML SERVICE DESIGN (PYTHON)
@@ -123,6 +159,7 @@ Format:
 Examples:
 - echeveria_perle_von_nurnberg
 - haworthia_zebrina
+- cryptanthus_bivittatus
 
 Derived Fields:
 - Genus extracted from label prefix
@@ -131,17 +168,48 @@ Derived Fields:
 --------------------------------------------------
 6.2 Care Data Design
 
-Stored as JSON.
+Generated dynamically via OpenAI GPT-4o-mini and cached in PostgreSQL.
 
-Key hierarchy:
-- Species-level key (highest priority)
-- Genus-level key (fallback)
+Database Table: care_instructions
+- id: UUID
+- genus: VARCHAR(255)
+- species: VARCHAR(255)
+- care_guide: JSONB
+- created_at: TIMESTAMP
+- updated_at: TIMESTAMP
+- UNIQUE INDEX on (genus, species)
 
-Example:
+JSONB Structure:
 {
-  "echeveria": { ... },
-  "echeveria_perle_von_nurnberg": { ... }
+  "sunlight": "Bright indirect light...",
+  "watering": "Water when soil is dry...",
+  "soil": "Well-draining cactus mix...",
+  "notes": "Additional care tips...",
+  "trivia": "Interesting facts about the plant..."
 }
+
+Cache Strategy:
+- Check database for existing entry by genus + species
+- If found, return cached care guide
+- If not found, call OpenAI API to generate
+- Save generated care to database for future requests
+- Fallback to generic care if OpenAI fails
+
+--------------------------------------------------
+6.3 Chat Data Design
+
+Database Table: chat_messages
+- id: UUID
+- identification_id: UUID (foreign key)
+- message: TEXT
+- sender: VARCHAR(50) - "user" or "assistant"
+- created_at: TIMESTAMP
+
+Chat Flow:
+- User message saved to database
+- OpenAI called with system context (genus, species, care info)
+- Assistant response saved to database
+- Both returned to frontend
 
 --------------------------------------------------
 7. API DESIGN
@@ -149,8 +217,7 @@ Example:
 
 7.1 Backend API
 
-Endpoint:
-POST /identify
+Endpoint: POST /identify
 
 Request:
 - multipart/form-data
@@ -158,6 +225,7 @@ Request:
 
 Response:
 {
+  "id": "uuid-string",
   "plant": {
     "genus": "Echeveria",
     "species": "Perle von Nürnberg",
@@ -167,9 +235,64 @@ Response:
     "sunlight": "Bright indirect light",
     "watering": "Every 7–10 days",
     "soil": "Well-draining cactus mix",
-    "notes": "Optional"
+    "notes": "Optional care notes",
+    "trivia": "Interesting facts about this plant"
   }
 }
+
+Endpoint: POST /chat
+
+Request:
+{
+  "identification_id": "uuid-string",
+  "message": "How often should I water this plant?"
+}
+
+Response:
+{
+  "response": "Based on the Echeveria identification..."
+}
+
+Endpoint: GET /history
+Query params: ?limit=10&offset=0
+
+Response:
+{
+  "identifications": [
+    {
+      "id": "uuid",
+      "genus": "Echeveria",
+      "species": "Perle von Nürnberg",
+      "confidence": 0.52,
+      "image_path": "filename.jpg",
+      "created_at": "2026-02-18T10:30:00Z"
+    }
+  ]
+}
+
+Endpoint: GET /history/:id
+
+Response:
+{
+  "id": "uuid",
+  "genus": "Echeveria",
+  "species": "Perle von Nürnberg",
+  "confidence": 0.52,
+  "image_path": "filename.jpg",
+  "care_guide": { ... },
+  "created_at": "2026-02-18T10:30:00Z"
+}
+
+Endpoint: DELETE /history/:id
+
+Response:
+{
+  "message": "Identification deleted successfully"
+}
+
+Endpoint: GET /uploads/:filename
+
+Response: Image file (static file serving)
 
 --------------------------------------------------
 7.2 ML Inference API
@@ -214,20 +337,60 @@ Response:
 --------------------------------------------------
 
 function identifyPlant(image):
-    path = saveImage(image)
-    predictions = callMLService(path)
+    // Save image permanently
+    imagePath = saveImage(image)  // UUID filename
 
+    // Get ML predictions
+    predictions = callMLService(imagePath)
     top = predictions[0]
     genus = extractGenus(top.label)
 
+    // Apply confidence threshold
     if top.confidence >= SPECIES_THRESHOLD:
         species = formatSpecies(top.label)
-        care = getCare(species) or getCare(genus)
     else:
         species = null
-        care = getCare(genus)
 
-    return response(genus, species, top.confidence, care)
+    // Get or generate care instructions
+    cachedCare = database.getCare(genus, species)
+    if cachedCare != null:
+        care = cachedCare
+    else:
+        // Generate with LLM
+        care = openai.generateCare(genus, species)
+        if care != null:
+            database.saveCare(genus, species, care)
+        else:
+            care = getFallbackCare()  // Generic succulent care
+
+    // Save identification to database
+    identificationID = uuid.generate()
+    database.saveIdentification({
+        id: identificationID,
+        genus: genus,
+        species: species,
+        confidence: top.confidence,
+        imagePath: imagePath,
+        careGuide: care
+    })
+
+    return response(identificationID, genus, species, top.confidence, care)
+
+function handleChat(identificationID, userMessage):
+    // Load identification context
+    identification = database.getIdentification(identificationID)
+
+    // Save user message
+    database.saveChatMessage(identificationID, userMessage, "user")
+
+    // Generate AI response with context
+    systemPrompt = buildSystemPrompt(identification.genus, identification.species, identification.careGuide)
+    aiResponse = openai.chat(systemPrompt, userMessage)
+
+    // Save AI response
+    database.saveChatMessage(identificationID, aiResponse, "assistant")
+
+    return response(aiResponse)
 
 --------------------------------------------------
 10. ML INFERENCE FLOW (PSEUDOCODE)
@@ -249,16 +412,34 @@ onInferRequest(image_path):
 --------------------------------------------------
 
 Performance:
-- Single-image inference
-- No concurrency optimization in V1
+- ML inference: <1 second
+- LLM care generation (first time): 2-3 seconds
+- Cached care retrieval: <100ms
+- Chat responses: 2-5 seconds
+- Database queries: <50ms
+- Overall end-to-end: <3 seconds for cached species
 
 Reliability:
-- ML service failure must return friendly error
-- Backend must not crash on ML errors
+- ML service failure → return friendly error
+- OpenAI API failure → use fallback generic care
+- Database save failure → log error but continue
+- Backend must not crash on service errors
+- Soft delete prevents accidental data loss
 
 Maintainability:
-- Clear separation of concerns
+- Clear separation of concerns (handlers, services, repositories)
+- Repository pattern for database access
+- Interface-based design for testability
+- Comprehensive unit tests (94+ tests, 70-90% coverage)
 - Versioned models
+- Database migrations for schema changes
+
+Security:
+- File upload validation (type, size, content)
+- GORM prevents SQL injection
+- OpenAI API key in environment variables
+- CORS middleware for frontend access
+- No authentication required (single-user)
 
 --------------------------------------------------
 12. ASSUMPTIONS & RISKS
@@ -267,15 +448,47 @@ Maintainability:
 Assumptions:
 - Images are clear and focused on plant
 - Dataset labels are mostly accurate
+- OpenAI API is available and reliable
+- Single-user or low concurrent usage
+- Users have internet connection for LLM features
 
 Risks:
 - Species visual similarity reduces accuracy
 - Dataset bias affects prediction quality
+- OpenAI API costs accumulate over time
+- OpenAI API rate limits or downtime
+- Database disk space grows with images and history
 
 Mitigations:
 - Show confidence scores
 - Provide genus fallback
 - Allow future retraining
+- Cache LLM-generated care to reduce API calls
+- Fallback to generic care if LLM fails
+- Soft delete allows data recovery
+- PostgreSQL scales well for expected usage
+
+--------------------------------------------------
+13. TESTING STRATEGY
+--------------------------------------------------
+
+Unit Tests:
+- Handler tests with mocks (identify, chat, history)
+- Repository tests with test database
+- Service tests (ML client, chat service)
+- Utility tests (config, file operations, plant parsing)
+- Coverage: 70-90%
+
+Integration Tests:
+- Full stack testing (ML + Backend + Frontend)
+- Real ML model predictions
+- OpenAI API integration tests (manual)
+- Database migrations and queries
+
+Test Fixtures:
+- Mock ML responses
+- Test care data
+- Sample images from training set
 
 --------------------------------------------------
 END OF DOCUMENT
